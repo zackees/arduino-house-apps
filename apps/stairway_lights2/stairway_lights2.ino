@@ -1,22 +1,28 @@
 
 
-#include "FastLED.h"
-#include "simplex_noise.h"
 
 #define PIN_STATUS_LED 13
 #define PIN_EXTERNAL_SIG 32
 #define PIN_PIR 27
-
 #define NUM_LEDS 300
+
+#include "FastLED.h"
+CRGB leds[NUM_LEDS];
+
 #define DATA_PIN 8
 #define CLOCK_PIN 9
+
+
+#include "simplex_noise.h"
+#include "fire_visualizer.h"
+
+
 
 
 //#define VIS_DURATION 1000 * 60 * 10  // 10 minutes
 #define VIS_DURATION 1000 * 5   // 5 seconds
 
 
-CRGB leds[NUM_LEDS];
 
 // P9813
 
@@ -140,8 +146,6 @@ void vis_loop() {
     activeTimer.Restart(VIS_DURATION);
   }
 
-  
-
   unsigned long time_now = millis();
 
   bool increase_brightness = false;
@@ -203,6 +207,8 @@ void vis_loop() {
 
 void loop() {
   #if 1
+  fire_loop();
+  #elif 0
   vis_loop();
   #else
   //update_status_led();
