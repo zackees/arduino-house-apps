@@ -1,0 +1,311 @@
+
+#define STAT_USE_STDEV  // For Statistic.h
+#include <NewDeleteExt.h>
+
+#include <Led.h>
+#include <RangeFinderSharpIR.h>
+#include <Coroutine.h>
+#include <CircularArray.h>
+#include <Vector.h>
+#include "TempSensor_DHT11.h"
+
+
+#define PRINT_VAR(X)   Serial.print(#X  " = "); Serial.println(X);
+
+// Sensors
+RangeFinderSharpIR ir_sensor(A0);
+TempSensor_DHT11 temp_sensor(12);  // Pin 12.
+
+float CosTime(float hz) {
+  unsigned long time_ms = millis();
+  time_ms = static_cast<unsigned long>(static_cast<float>(time_ms) * hz);
+  const float time_cycle = static_cast<float>(time_ms % 1000) / 1000.0f;
+  float cos_val = cos(time_cycle * PI * 2.0f);
+  return cos_val;
+}
+
+float SinTime(float hz) {
+  unsigned long time_ms = millis();
+  time_ms = static_cast<unsigned long>(static_cast<float>(time_ms) * hz);
+  const float time_cycle = static_cast<float>(time_ms % 1000) / 1000.0f;
+  float sin_val = sin(time_cycle * PI * 2.0f);
+  return sin_val;
+}
+
+float mapf(float x, float in_min, float in_max, float out_min, float out_max) {
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
+class LightController : public AbstractCoroutine {
+ public:
+  LightController() : blue_led_(6), red_led_(9), white_led_(3), el_wire_(5), last_time_(millis()) {
+  }
+
+  virtual int OnCoroutine() {
+    unsigned long long curr = millis();
+    const float dt = static_cast<float>(curr - last_time_) / 1000.0f;
+    last_time_ = curr;
+    Update(dt);
+    return 1;
+  }
+  
+  void Update(float dt) {
+    blue_led_.Update(dt);
+    red_led_.Update(dt);
+    white_led_.Update(dt);
+    el_wire_.Update(dt);
+  }
+  
+  void Test() {
+    for (int i = 0; i < kNumLights; ++i) {
+      for (int ii = 0; ii < kNumLights; ++ii) {
+        if (i == ii) {
+          get_light(ii).On(); 
+        } else {
+          get_light(ii).Off(); 
+        }
+      } 
+      delay(1000);
+    }
+  }
+  
+
+ 
+  enum {
+    kBlueLed = 0,
+    kRedLed = 1,
+    kWhiteLed = 2,
+    kElWire = 3,
+    kNumLights = 4
+  };
+  
+  struct LedState : public Led {
+    LedState(int pin) : Led(pin), rate_(0.0f), power_(0.0f), target_power_(0.0) {}
+    void Update(float dt) {
+      // If nothing to do then return.
+      if (power_ == target_power_) {
+        return; 
+      }
+      // move the power toward target_power_, in position of dt.
+      if (power_ < target_power_) {
+        power_ = min(power_ + (rate_ * dt), target_power_);
+      } else {
+        power_ = max(power_ - (rate_ * dt), target_power_); 
+      }
+      // Then finally converrt the power to the led integer mapping.
+      Led::Set(static_cast<int>(power_ * 255.0f));
+    }
+    void Transition(float target_power, float transition_time_secons) {
+      rate_ = 1.0f / transition_time_secons; 
+      target_power_ = target_power;
+    }
+    float rate_;
+    float power_;
+    float target_power_;
+  };
+  
+  // get_light(...) and count() allow array style access to the underlying
+  // lights.
+  LedState& get_light(int i) {
+     switch (i) {
+       case kBlueLed: return blue_led_;
+       case kRedLed: return red_led_; 
+       case kWhiteLed: return white_led_;
+       case kElWire:
+       default: return el_wire_;
+     }
+  }
+  
+  int count() const { return kNumLights; }
+  
+ private:
+
+  LedState blue_led_, red_led_, white_led_, el_wire_;
+  unsigned long long last_time_;
+};
+
+class AbstractPriorityAction {
+ public:
+  virtual void Update(float range_meters, float temperature_f) = 0;
+  // Returns true if Executed() invoked changes to the environment.
+  virtual bool Execute() = 0;
+};
+
+// When nothing else can Execute, then this class will execute.
+class NullAction : public AbstractPriorityAction {
+ public:
+  NullAction(LightController& lc) : light_controller_(lc) {}
+  virtual void Update(float range_meters, float temperature_f) {}
+  
+  // Always executes.
+  virtual bool Execute() {
+    for (int i = 0; i < light_controller_.count(); ++i) {
+      // Transition to off over one second.
+      light_controller_.get_light(i).Transition(0.0, 10.0);
+    }
+    return true;
+  }
+ private:
+  LightController& light_controller_;
+};
+
+class CooldownAction : public AbstractPriorityAction {
+ public:
+  CooldownAction(LightController& lc) : light_controller_(lc), end_time_stamp_(0) {}
+
+
+  
+  virtual void Update(float range_meters, float temperature_f) {
+    if (range_meters < 1.2f) {
+      typedef unsigned long ul;
+      // 2 mins until end of time.
+      end_time_stamp_ = millis();
+      end_time_stamp_ += ul(5) * ul(60) * ul(1000);  // + 5 minutes.
+    }
+  }
+
+  // Always executes.
+  virtual bool Execute() {
+    // Serial.println(end_time_stamp_);
+    
+    if (end_time_stamp_ > millis()) {
+      // 33% power over .7 seconds.
+      light_controller_.get_light(LightController::kWhiteLed).Transition(0, 10.0);
+      
+      const float sin_t = SinTime(1.0f / 5.0f);
+      float red_power = mapf(sin_t, -1, 1, .12, .50);
+      light_controller_.get_light(LightController::kRedLed).Transition(red_power, 10.0);
+      
+      const float cos_t = CosTime(1.0f / 5.0f);
+      float blue_power = mapf(cos_t, -1, 1, .12, .50);
+      light_controller_.get_light(LightController::kBlueLed).Transition(blue_power, .7);
+      return true; 
+    }
+    // Do nothing.
+    return false;
+  }
+  
+ private:
+  LightController& light_controller_;
+  unsigned long end_time_stamp_;
+};
+
+class ProximiyAction : public AbstractPriorityAction {
+ public:
+  ProximiyAction(LightController& lc) : light_controller_(lc), state_(-1) {}
+  virtual void Update(float range_meters, float temperature_f) {
+    range_meters_ = range_meters;
+    if (range_meters_ > 1.2f) {
+      state_ = -1; 
+    }
+  }
+  
+  // Always executes.
+  virtual bool Execute() {
+    
+
+    if (range_meters_ < .4f || (state_ == 0 && range_meters_ < .5f)) {
+      state_ = 0;
+      // 1st arg - brightness brightness
+      // 2nd arg - speed to achieve full brightness.
+      light_controller_.get_light(LightController::kWhiteLed).Transition(0.50, 1.0);
+      light_controller_.get_light(LightController::kRedLed).Transition(0.08, 4.0);
+      light_controller_.get_light(LightController::kBlueLed).Transition(0.0, 10.0);
+      return true;
+    }
+    
+    if (range_meters_ < .7f || (state_ == 1 && range_meters_ <1.1f)) {
+      state_ = 1;
+      // 1st arg - brightness brightness
+      // 2nd arg - speed to achieve full brightness.
+      light_controller_.get_light(LightController::kWhiteLed).Transition(0.25, 5.0);
+      light_controller_.get_light(LightController::kRedLed).Transition(0.08, 4.0);
+      light_controller_.get_light(LightController::kBlueLed).Transition(.12, 5.0);
+      return true;
+    }
+    
+    if (range_meters_ < 1.2f || (state_ == 2 && range_meters_ < 1.8f)) {
+      state_ = 2;
+      light_controller_.get_light(LightController::kWhiteLed).Transition(0.0, 10.0);
+      
+      float red_val = mapf(SinTime(.50), -1, 1, .10, .20);
+      float blue_val = mapf(CosTime(.50), -1, 1, .15, .20);
+      light_controller_.get_light(LightController::kRedLed).Transition(red_val, 2.0);
+      light_controller_.get_light(LightController::kBlueLed).Transition(blue_val, 3.0);
+      return true;
+    }
+    // Do nothing.
+    return false;
+  }
+  
+ private:
+  LightController& light_controller_;
+  float range_meters_;
+  int state_;
+};
+
+
+// Timed rou
+LightController light_controller_;
+AbstractCoroutine *tasks_for_dispatch[] = { &light_controller_ };
+CoroutineDispatch dispatch(tasks_for_dispatch);
+
+// Subsummable actions.
+NullAction null_action_(light_controller_);
+CooldownAction cooldown_action_(light_controller_);
+ProximiyAction proximity_action_(light_controller_);
+
+void setup(void) {
+  Serial.begin(9600);
+}
+
+void loop(void) {
+
+#if 0
+  light_controller_.Test();
+  return;
+#else  
+  int sleep_time = dispatch.Update();
+  
+  static const int kInvalidTemp = -999999999.0f;
+  float temp_f = kInvalidTemp;
+  
+  #if 0
+  TempSensor_DHT11::Status sts = temp_sensor.Update();
+  if (sts != TempSensor_DHT11::DHTLIB_OK) {
+    Serial.print("temp sensor error: "); Serial.println(sts);
+  } else {
+    temp_f = temp_sensor.temperature_fahrenheit();
+  }
+  #endif
+
+  const float dist_meters = ir_sensor.SampleDistanceMeters();
+  
+  AbstractPriorityAction* subsumable_actions[] = {
+    &proximity_action_,
+    &cooldown_action_,
+    &null_action_
+  };
+  
+  static const int n = sizeof(subsumable_actions) / sizeof(*subsumable_actions);
+  
+  
+  // Update all the subsummable actions.
+  for (int i = 0; i < n; ++i) {
+    subsumable_actions[i]->Update(dist_meters, temp_f);
+  }
+  
+  // Execute all of the subsummable actions from the most specific
+  // to the most general.
+  for (int i = 0; i < n; ++i) {
+    if (subsumable_actions[i]->Execute()) {
+      break;  // This action was able to Execute.
+    }
+  };
+
+  delay(sleep_time);
+#endif
+}
+
+
+

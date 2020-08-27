@@ -1,0 +1,64 @@
+
+#include <SPI.h>
+#include <TCL.h>
+#include <LedRopeTCL.h>
+#include <Sineseza.h>
+
+static const int kNumLedRopeLights = 200;
+
+LedRopeTCL led_rope(kNumLedRopeLights);
+Sineseza sound_equalizer;
+
+void setup(void) {
+  Serial.begin(9600);
+  led_rope.FillColor(LedRopeTCL::Color3i::Black());
+  sound_equalizer.set_gain(2.f);
+}
+
+void loop(void) {
+  typedef LedRopeTCL::Color3i Color3i;
+  delay(8);
+  
+ 
+  Sineseza::Output sound_equalizer_output;
+  sound_equalizer.ProcessAudioTo(&sound_equalizer_output);
+  
+ 
+  // Fades the rope by 50% on each color.
+  led_rope.ApplyBlendMultiply(Color3i(128, 128, 128));
+  
+//  sound_equalizer.PrintBands(sound_equalizer_output);
+  
+  Color3i color_band[] = {
+    Color3i::Red(),
+    Color3i::Orange(),
+    Color3i::Yellow(),
+    Color3i::Green(),
+    Color3i::Cyan(),
+    Color3i(0x00, 0xff / 2, 0xff),
+    Color3i::Blue()
+  };
+  
+  const float sum_all_equalizer_values = 7 * 255;
+  float equalizer_values[7];
+  
+  for (int i = 0; i < 7; ++i) {
+    int sound_band_value = sound_equalizer_output.spectrum_array[i];
+    equalizer_values[i] = float(sound_equalizer_output.spectrum_array[i]) /
+                          sum_all_equalizer_values;
+  }
+  
+  int mid_point = kNumLedRopeLights / 2;
+  int forward_pixel_iterator = mid_point;
+  int backward_pixel_iterator = mid_point;
+  for (int i = 0; i < 7; i++) {
+    int num_pixels = int(equalizer_values[i] * kNumLedRopeLights / 2.0f);
+    const Color3i& c = color_band[i];
+   
+    led_rope.Set(forward_pixel_iterator, num_pixels, c);
+    led_rope.Set(backward_pixel_iterator - num_pixels - 1, num_pixels, c);
+    forward_pixel_iterator += num_pixels;
+    backward_pixel_iterator -= num_pixels;
+  }
+  led_rope.Draw();
+}

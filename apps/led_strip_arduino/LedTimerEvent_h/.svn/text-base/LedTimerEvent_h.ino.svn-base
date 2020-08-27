@@ -1,0 +1,4 @@
+struct LedTimerEvent {
+  int data;
+};
+

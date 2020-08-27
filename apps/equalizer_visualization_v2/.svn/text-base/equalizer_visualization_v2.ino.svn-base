@@ -1,0 +1,305 @@
+
+#include <SPI.h>
+#include <TCL.h>
+#include <LedRopeTCL.h>
+#include <Sineseza.h>
+#include <Coroutine.h>
+
+#include <NewDeleteExt.h>
+#include <Vector.h>
+#include <CircularArray.h>
+
+static const int kNumLedRopeLights = 200;
+
+typedef LedRopeTCL::Color3i Color3i;
+typedef LedRopeTCL::Color3i ColorPalette[7];
+
+class SoundEqualizerSampler : public AbstractCoroutine {
+ public:
+  SoundEqualizerSampler() : output_buffer_(3) {
+  }
+  
+  void set_gain(float g) {
+    sound_equalizer_.set_gain(2.f);
+  }
+  
+  virtual int OnCoroutine() {
+    Sineseza::Output output;
+    sound_equalizer_.ProcessAudioTo(&output);
+    output_buffer_.push_back(output);
+    
+    
+    return 0;  // Schedule as soon as possible.
+  }
+  
+  const Sineseza::Output& curr_output() const { return output_buffer_.back(); }
+  
+  
+  static Sineseza::Output Max(const Sineseza::Output& o1, const Sineseza::Output& o2) {
+    Sineseza::Output out;
+    for (int i = 0; i < out.spectrum_array_size; ++i) {
+      out.spectrum_array[i] = max(o1.spectrum_array[i], o2.spectrum_array[i]);
+    }
+    return out;
+  }
+  
+  static Sineseza::Output Falloff(const Sineseza::Output& o1, const Sineseza::Output& o2,
+                                  int max_decrease) {
+    Sineseza::Output out;
+    for (int i = 0; i < out.spectrum_array_size; ++i) {
+      const int val1 = o1.spectrum_array[i];
+      const int val2 = o2.spectrum_array[i];
+      if (val2 > val1) {
+        out.spectrum_array[i] = val2;
+      } else {
+        const int min_val = val1 - max_decrease;
+        out.spectrum_array[i] = constrain(val2, val1, min_val);
+      }
+    }
+    return out;
+  }
+  
+  static Sineseza::Output Velocity(const Sineseza::Output& o1, const Sineseza::Output& o2) {
+    Sineseza::Output out;
+    for (int i = 0; i < out.spectrum_array_size; ++i) {
+      const int val1 = o1.spectrum_array[i];
+      const int val2 = o2.spectrum_array[i];
+      out.spectrum_array[i] = o2.spectrum_array[i] - o1.spectrum_array[i];
+    }
+    return out;
+  }
+  
+  Sineseza::Output filtered_output() const {
+    const int n = output_buffer_.size();
+    static const float kMaxDecrease = 10;
+    return Falloff(output_buffer_[n - 2], output_buffer_[n - 1], kMaxDecrease);
+  }
+  
+  Sineseza::Output average() const {
+    Sineseza::Output output;
+    for (int i = 0; i < output.spectrum_array_size; ++i) {
+      int& sum = output.spectrum_array[i];
+      sum = 0;
+      const int n = output_buffer_.size();
+      for (int j = 1; j < output_buffer_.size(); ++j) {
+        sum += output_buffer_[j].spectrum_array[i];
+      }
+      sum /= static_cast<float>(n);
+    }
+    return output;
+  }
+  
+ private:
+  Sineseza sound_equalizer_;
+  //Sineseza::Output output_sample[3];
+  CircularArray<Sineseza::Output> output_buffer_;
+  Sineseza::Output velocity_, acceleration_;
+};
+
+class IVisualizer {
+ public:
+  virtual ~IVisualizer() {}
+  virtual void Update(const ColorPalette& color_palette,
+                      const Sineseza::Output& equalizer,
+                      LedRopeTCL* led_rope) = 0;
+
+};
+
+class Visualizer : public IVisualizer{
+ public:
+  virtual void Update(const ColorPalette& color_palette,
+                      const Sineseza::Output& equalizer,
+                      LedRopeTCL* led_rope) {
+    typedef LedRopeTCL::Color3i Color3i;
+
+    const float sum_all_equalizer_values = 7 * 255;
+    float equalizer_values[7];
+    
+    for (int i = 0; i < 7; ++i) {
+      equalizer_values[i] = float(equalizer.spectrum_array[i]) /
+                            sum_all_equalizer_values;
+      if (equalizer_values[i] < 0.0f) {
+        equalizer_values[i] = 0.0f;
+      }
+    }
+    
+    int mid_point = led_rope->length() / 2;
+    int forward_pixel_iterator = mid_point;
+    int backward_pixel_iterator = mid_point;
+    for (int i = 0; i < 7; i++) {
+      int num_pixels = int(equalizer_values[i] * led_rope->length() / 2.0f);
+      const Color3i& c = color_palette[i];
+     
+      led_rope->Set(forward_pixel_iterator, num_pixels, c);
+      led_rope->Set(backward_pixel_iterator - num_pixels, num_pixels, c);
+      forward_pixel_iterator += num_pixels;
+      backward_pixel_iterator -= num_pixels;
+    }
+  }
+};
+
+
+class Visualizer2 : public IVisualizer {
+ public:
+
+  virtual void Update(const ColorPalette& color_palatte,
+                      const Sineseza::Output& equalizer,
+                      LedRopeTCL* led_rope) {
+    const int n_bands = equalizer.spectrum_array_size;
+    
+    float equalizer_values[Sineseza::Output::spectrum_array_size];
+    
+    for (int i = 0; i < n_bands; ++i) {
+      int sound_band_value = equalizer.spectrum_array[i];
+      equalizer_values[i] = float(equalizer.spectrum_array[i]) /
+                            255.f;
+    }
+    
+    const int strand_length = led_rope->length() / n_bands;
+    
+    for (int i = 0; i < n_bands; ++i) {
+      Color3i* begin_pixel = led_rope->GetIterator(strand_length * i);
+      Color3i* end_pixel = led_rope->GetIterator(strand_length * (i + 1));
+      
+      ApplySpectrum(color_palatte[i], begin_pixel, end_pixel, equalizer_values[i]);
+    }
+  }
+  
+ private:
+  // Input:
+  //   color: Color to paint the strand.
+  //   begin/end: Slice of the Color Array.
+  //   intensity: A value from [0-1] where 0 means black is painted in all pixels
+  //              while 1 means input color is painted in all colors.
+  void ApplySpectrum(const Color3i& color,
+                     Color3i* begin, Color3i* end,
+                     float intensity) {
+                       
+    const int n = end - begin;
+    Color3i* mid = begin + (n / 2);
+    
+    const int count = static_cast<int>(intensity * static_cast<float>(n / 2));
+    for (int i = 0; i < count; ++i) {
+      Color3i* forward = mid + i;
+      Color3i* backward = mid - i;
+      forward->Set(color);
+      backward->Set(color);
+    }
+  }
+};
+
+
+class Visualizer3 : public IVisualizer {
+ public:
+  virtual void Update(const ColorPalette& color_palette,
+                      const Sineseza::Output& equalizer,
+                      LedRopeTCL* led_rope) {
+    const int n_bands = equalizer.spectrum_array_size;
+    const float sum_all_equalizer_values = 7 * 255;
+    
+    // Normalized equalizer values.
+    float equalizer_values[Sineseza::Output::spectrum_array_size];
+    for (int i = 0; i < n_bands; ++i) {
+      int val = equalizer.spectrum_array[i];
+      if (val > 255) {
+        Serial.print("Large spectrum value detected at i = "); Serial.print(i);
+        Serial.print(", value = "); Serial.println(val);
+        val = 255;
+      }
+      equalizer_values[i] = float(val) / 255.f;
+      if (equalizer_values[i] < 0.0f) {
+        equalizer_values[i] = 0.0f;
+      }
+    }
+    
+    
+    int mid_point = led_rope->length() / 2;
+    int forward_pixel_iterator = mid_point;
+    int backward_pixel_iterator = mid_point;
+    
+    const float led_strip_size = led_rope->length() / 7;
+    
+    for (int i = 0; i < 3; i++) {
+      int num_pixels = int(equalizer_values[i] * led_strip_size) / 2;
+      const Color3i& c = color_palette[i];
+     
+      led_rope->Set(forward_pixel_iterator, num_pixels, c);
+      led_rope->Set(backward_pixel_iterator - num_pixels, num_pixels, c);
+      forward_pixel_iterator += num_pixels;
+      backward_pixel_iterator -= num_pixels;
+    }
+    
+    forward_pixel_iterator = 0;
+    backward_pixel_iterator = 0;
+    
+    for (int i = 3; i < 7; i++) {
+      int num_pixels = int(equalizer_values[i] * led_strip_size) / 2;
+      const Color3i& c = color_palette[i];
+
+      led_rope->Set(forward_pixel_iterator, num_pixels, c);
+      led_rope->Set(backward_pixel_iterator - num_pixels, num_pixels, c);
+      forward_pixel_iterator += num_pixels;
+      backward_pixel_iterator -= num_pixels;
+    }
+  }
+};
+
+LedRopeTCL led_rope(kNumLedRopeLights);
+Visualizer vis1;
+Visualizer2 vis2;
+Visualizer3 vis3;
+
+SoundEqualizerSampler sound_eq_sampler;
+
+AbstractCoroutine* routines[] = { &sound_eq_sampler };
+
+CoroutineDispatch routine_dispatcher(routines);
+
+void setup(void) {
+  Serial.begin(9600);
+  led_rope.FillColor(LedRopeTCL::Color3i::Black());
+}
+
+void loop(void) {
+  typedef LedRopeTCL::Color3i Color3i;
+  delay(8);
+  
+  routine_dispatcher.Update();
+
+  //  sound_equalizer.PrintBands(sound_equalizer_output); 
+  // Fades the rope by 50% on each color.
+  led_rope.ApplyBlendMultiply(Color3i(128, 128, 128));
+
+
+  static LedRopeTCL::Color3i color_palette[] = {
+    Color3i::Red(),
+    Color3i::Orange(),
+    Color3i::Yellow(),
+    Color3i::Green(),
+    Color3i::Cyan(),
+    Color3i::Blue(),
+    Color3i(255, 0, 255), // purple
+  };
+
+  static int counter = 0;
+  counter = (counter + 1) % 1500;
+
+  if (counter < 500) {
+    sound_eq_sampler.set_gain(1.0f);
+    vis3.Update(color_palette, sound_eq_sampler.filtered_output(), &led_rope);
+  } else if (counter < 1000) {
+    sound_eq_sampler.set_gain(1.0f);
+    vis2.Update(color_palette, sound_eq_sampler.filtered_output(), &led_rope); 
+  } else {
+    sound_eq_sampler.set_gain(2.0f);
+    vis1.Update(color_palette, sound_eq_sampler.filtered_output(), &led_rope); 
+  }
+  
+  static int draw_offset = 0;
+  if (counter % 10 == 0) {
+    draw_offset = (draw_offset + 1) % led_rope.length();
+    led_rope.set_draw_offset(draw_offset);
+  }
+ 
+  led_rope.Draw();
+}
