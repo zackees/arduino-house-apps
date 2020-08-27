@@ -2,6 +2,8 @@
 
 #include "FastLED.h"
 
+#define PIN_STATUS_LED 13
+#define PIN_EXTERNAL_SIG 32
 
 #define NUM_LEDS 300
 #define DATA_PIN 8
@@ -19,26 +21,32 @@ void setup() {
   // put your setup code here, to run once:
 
   Serial.println("Init ok");
-  pinMode(13, OUTPUT);
+  pinMode(PIN_STATUS_LED, OUTPUT);
+  pinMode(PIN_EXTERNAL_SIG, INPUT);                                                                                                                          
 }
+
+
 
 void update_status_led() {
   uint32_t time = millis();
   int st = (time % uint32_t(100));
   Serial.println(st);
-  digitalWrite(13, (st < 50) ? HIGH : LOW);
+  digitalWrite(PIN_STATUS_LED, (st < 50) ? HIGH : LOW);
 }
 
-void loop() {
-  update_status_led();
+void set_status_led(int val) {
+  digitalWrite(PIN_STATUS_LED, val);
+}
 
+
+
+void do_draw_test() {
   // Turn the LED on, then pause
   for(int i=0;i<NUM_LEDS;i++){
     leds[i] = CRGB::Red;
     FastLED.show();
     leds[i] = CRGB::Black;
     delay(2);
-    update_status_led();
   }
   FastLED.show();
   for(int i=0;i<NUM_LEDS;i++){
@@ -46,7 +54,6 @@ void loop() {
     FastLED.show();
     leds[i] = CRGB::Black;
     delay(2);
-    update_status_led();
   }
   FastLED.show();
   for(int i=0;i<NUM_LEDS;i++){
@@ -54,6 +61,23 @@ void loop() {
     FastLED.show();
     leds[i] = CRGB::Black;
     delay(2);
-    update_status_led();
+  }
+}
+
+
+
+
+
+void loop() {
+  //update_status_led();
+  //do_draw_test();
+
+  int external_sig = digitalRead(PIN_EXTERNAL_SIG);
+
+  Serial.print("EXTERNAL_SIG: "); Serial.println(external_sig);
+  set_status_led(external_sig == HIGH);
+
+  if (!external_sig) {
+    do_draw_test();
   }
 }
