@@ -2,7 +2,7 @@
 
 
 // Assumed a 4x120 grid for rendering the fire effect.
-#define NUM_ROWS 1
+#define NUM_ROWS NUM_LEDS
 
 // Number of fire pixels.
 #define NUM_FIRE_LEDS NUM_LEDS
@@ -96,12 +96,12 @@ class Fire2012WithPallete {
 
   // Two versions of this function. The enable_sparking lights up the visualizer.
   void Run(bool enable_sparking, int cooling) {
+    Serial.println("Running Fire2012");
     // Array of temperature readings at each simulation cell
     //static byte heat[NUM_FIRE_LEDS] = {0};
 
     // Kind of a hack to get the device to cooldown more.
     //if (heat_scale < 1.0) {
-
     //}
 
     // Step 1.  Cool down every cell a little
@@ -178,4 +178,5 @@ void fire_visualizer_monophonic() {
   for (int x = 0; x < NUM_LEDS; x++) {
     leds[x] = fire_simulator.fire_leds[x];
   }
+  FastLED.show();
 }

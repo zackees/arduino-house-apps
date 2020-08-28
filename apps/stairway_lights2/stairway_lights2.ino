@@ -4,7 +4,7 @@
 #define PIN_STATUS_LED 13
 #define PIN_EXTERNAL_SIG 32
 #define PIN_PIR 27
-#define NUM_LEDS 300
+#define NUM_LEDS 75
 
 #include "FastLED.h"
 CRGB leds[NUM_LEDS];
@@ -30,7 +30,7 @@ void setup() {
   Serial.begin(9600);  // Doesn't matter for teensy.
   delay(500);
   //FastLED.addLeds<APA102, DATA_PIN, CLOCK_PIN, BGR>(leds, NUM_LEDS);
-  FastLED.addLeds<P9813, DATA_PIN, CLOCK_PIN, BGR>(leds, NUM_LEDS);
+  FastLED.addLeds<P9813, DATA_PIN, CLOCK_PIN, RGB>(leds, NUM_LEDS);
   // put your setup code here, to run once:
 
   Serial.println("Init ok");
@@ -206,7 +206,8 @@ void vis_loop() {
 }
 
 void loop() {
-  #if 1
+  #if 0
+  FillBlack(leds);
   fire_loop();
   #elif 0
   vis_loop();
