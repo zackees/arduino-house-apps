@@ -1,0 +1,12 @@
+{
+    "arduino.path": "/usr/local/bin/arduino-1.8.13",
+    "arduino.commandPath": "arduino_debug.exe",
+    "arduino.logLevel": "info",
+    "arduino.allowPDEFiletype": false, 
+    "arduino.enableUSBDetection": true,
+    "arduino.disableTestingOpen": false,
+    "arduino.skipHeaderProvider": false,
+    "arduino.additionalUrls": [
+    ],
+    "arduino.defaultBaudRate": 115200
+}
