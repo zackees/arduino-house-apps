@@ -16,15 +16,4 @@
 
                                       // Number of LED's.
 
-int basicfadeingamma_loop(bool clear, bool sensor_active_top, bool sensor_active_bottom) {
-  random16_set_seed(535);                                                           // The randomizer needs to be re-set each time through the loop in order for the 'random' numbers to be the same each time through.
-  for (int i = 0; i<NUM_LEDS; i++) {
-    uint8_t fader = sin8(millis()/random8(10,20));                                  // The random number for each 'i' will be the same every time.
-    //fader = gamma8[fader];                                          // Gamma correction
-    fader = qsub8(fader, 64);
-    leds[i] = CHSV(i*20,255, fader);                                                // Now, let's assign to CHSV values.
-  }
-  random16_set_seed(millis());                                                      // Re-randomizing the random number seed for other routines.
-  return 0;
-
-} // basicfadeingamma()
+int basicfadeingamma_loop(bool clear, bool sensor_active_top, bool sensor_active_bottom);

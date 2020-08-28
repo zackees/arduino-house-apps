@@ -1,4 +1,5 @@
 
+#include <Arduino.h>
 
 #include "vis_fire.h"
 #include "defs.h"

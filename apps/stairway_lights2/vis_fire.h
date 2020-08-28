@@ -1,4 +1,3 @@
-#include <Arduino.h>
 
 #ifndef _VIS_FIRE_H_
 #define _VIS_FIRE_H_
