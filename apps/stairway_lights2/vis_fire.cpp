@@ -1,5 +1,9 @@
-//#include <Arduino.h>
 
+
+#include "vis_fire.h"
+#include "defs.h"
+#include <FastLED.h>
+#include "gfx.h"
 
 // Assumed a 4x120 grid for rendering the fire effect.
 #define NUM_ROWS NUM_LEDS
@@ -7,15 +11,8 @@
 // Number of fire pixels.
 #define NUM_FIRE_LEDS (NUM_LEDS / 2)
 
+void fire_visualizer_monophonic(bool clear, bool activated);
 
-// DEPRECATED.
-// SPARKING: What chance (out of 255) is there that a new spark will be lit?
-// Higher chance = more roaring fire.  Lower chance = more flickery fire.
-// Default 120, suggested range 50-200.
-//#define SPARKING 50
-
-
-void fire_visualizer_monophonic(bool activated);
 
 // Fire2012 with programmable Color Palette
 //
@@ -60,7 +57,7 @@ uint32_t fire_loop(bool clear, bool sensor_active_top, bool sensor_active_bottom
   //   CRGB darkcolor  = CHSV(hue,255,192); // pure hue, three-quarters brightness
   //   CRGB lightcolor = CHSV(hue,128,255); // half 'whitened', full brightness
   //   pallete = CRGBPalette16( CRGB::Black, darkcolor, lightcolor, CRGB::White);
-  fire_visualizer_monophonic(sensor_active_top || sensor_active_bottom);
+  fire_visualizer_monophonic(clear, sensor_active_top || sensor_active_bottom);
   return 30;
 }
 
@@ -115,6 +112,11 @@ class Fire2012WithPalette {
     }
   }
 
+  void clear() {
+    memset(heat, 0, sizeof(heat));
+    memset(fire_leds, 0, fire_leds);
+  }
+
  //private:
   byte heat[NUM_FIRE_LEDS];
   CRGB fire_leds[NUM_FIRE_LEDS];
@@ -150,7 +152,7 @@ void setup_firevisualizer() {
 
 
 
-void fire_visualizer_monophonic(bool activated) {
+void fire_visualizer_monophonic(bool clear, bool activated) {
   // COOLING: How much does the air cool as it rises?
   // Less cooling = taller flames.  More cooling = shorter flames.
   // Default 55, suggested range 20-100 
@@ -163,6 +165,12 @@ void fire_visualizer_monophonic(bool activated) {
   if (heat_scale < .15f) {
     heat_scale = .15f;
   }
+
+  if (clear) {
+    for (int i = 0; i < 2; ++i) {
+      fire_simulator[i].clear();
+    }
+  }  
 
 #if 0
   if (heat_scale > 1.0) {

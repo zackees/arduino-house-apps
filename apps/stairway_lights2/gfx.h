@@ -15,4 +15,6 @@ void gfx_init();
 void gfx_show();
 void gfx_clear();
 
+uint8_t gamma8(uint8_t in);
+
 #endif  // _GFX_H_

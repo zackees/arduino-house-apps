@@ -3,6 +3,8 @@
 #ifndef _SENSORS_H_
 #define _SENSORS_H_
 
+#include "Arduino.h"
+
 #include "defs.h"
 
 inline void sensors_init() {

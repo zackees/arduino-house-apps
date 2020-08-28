@@ -5,8 +5,8 @@
 #include "gfx.h"
 
 #include "simplex_noise.h"
-#include "fire_visualizer.h"
-#include "basicfadeingamma.h"
+#include "vis_fire.h"
+#include "vis_rainbowdrops.h"
 #include "darkness.h"
 #include "sensors.h"
 #include "vis_noisewave.h"
@@ -45,7 +45,7 @@ uint32_t timed_index() {
   static uint32_t idx = 0;
   uint32_t now = millis();
   static uint32_t prev = now;
-  if (now - prev > 10000) {
+  if (now - prev > 1000 * 10) {
     prev = now;
     // do event here
     idx++;
@@ -64,7 +64,7 @@ void loop() {
   int delay_ms = 0;
   if (active) {
     static uint32_t s_last_time = 0;
-    if (s_last_time == 0 || (millis() - s_last_time > 1000 * 10)) {
+    if (s_last_time == 0 || (millis() - s_last_time > 1000 * 60 * 10)) {
       darkness_painter.Start();
       s_last_time = millis();
     }
@@ -84,13 +84,12 @@ void loop() {
     case 0:  { delay_ms = basicfadeingamma_loop(clear, sensor_active_top, sensor_active_bottom); break; }
     case 1:  { delay_ms = fire_loop(clear, sensor_active_top, sensor_active_bottom);             break; }
     case 2:  { delay_ms = vis_loop(clear, sensor_active_top, sensor_active_bottom);              break; }
-    default: { idx = 0;                                                                          break; }
   }
   delay(delay_ms);
 
   for (int i = 0; i < NUM_LEDS; ++i) {
-    char data[100];
     float b = darkness_painter.Brightness(i);
+    //char data[100];
     //sprintf(data, "[%d]: %f\n", i, b);
     //Serial.print(data);
     //Serial.print('['); Serial.print(i); Serial.print(']: '); Serial.println("");
