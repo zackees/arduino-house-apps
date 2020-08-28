@@ -1,18 +1,9 @@
 
 
 
-#define PIN_STATUS_LED 13
-#define PIN_EXTERNAL_SIG 32
-#define PIN_PIR 27
-#define NUM_LEDS 151
+#include "defs.h"
 
-#include "FastLED.h"
-CRGB leds[NUM_LEDS];
-CRGB display_leds[NUM_LEDS];  // Led's that are displayed.
-
-#define DATA_PIN 8
-#define CLOCK_PIN 9
-
+#include "gfx.h"
 
 #include "simplex_noise.h"
 #include "fire_visualizer.h"
@@ -21,22 +12,17 @@ CRGB display_leds[NUM_LEDS];  // Led's that are displayed.
 #include "sensors.h"
 #include "noisewave_visualizer.h"
 
-
 DarknessPainter darkness_painter;
 // P9813
 
 void setup() {
   Serial.begin(9600);  // Doesn't matter for teensy.
-  delay(500);
-  //FastLED.addLeds<APA102, DATA_PIN, CLOCK_PIN, BGR>(leds, NUM_LEDS);
-  FastLED.addLeds<P9813, DATA_PIN, CLOCK_PIN, RGB>(display_leds, NUM_LEDS);
-  // put your setup code here, to run once:
-
   Serial.println("Init ok");
   pinMode(PIN_STATUS_LED, OUTPUT);
   pinMode(PIN_EXTERNAL_SIG, INPUT);
   pinMode(PIN_PIR, INPUT);
   setup_firevisualizer();
+  gfx_init();
 }
 
 
@@ -64,21 +50,21 @@ void do_draw_test() {
   // Turn the LED on, then pause
   for(int i=0;i<NUM_LEDS;i++){
     leds[i] = CRGB::Red;
-    FastLED.show();
+    gfx_show();
     leds[i] = CRGB::Black;
     delay(2);
   }
-  FastLED.show();
+  gfx_show();
   for(int i=0;i<NUM_LEDS;i++){
     leds[i] = CRGB::Green;
-    FastLED.show();
+    gfx_show();
     leds[i] = CRGB::Black;
     delay(2);
   }
   FastLED.show();
   for(int i=0;i<NUM_LEDS;i++){
     leds[i] = CRGB::Blue;
-    FastLED.show();
+    gfx_show();
     leds[i] = CRGB::Black;
     delay(2);
   }
@@ -146,5 +132,5 @@ void loop() {
     }
   }
 
-  FastLED.show();
+  gfx_show();
 }
