@@ -11,9 +11,6 @@
 #include "sensors.h"
 #include "vis_noisewave.h"
 
-#define COOLDOWN_DARKNESS_MS (1000*10)
-
-
 #ifdef _DEBUG_TESTING
 # define FORCE_ACTIVATION_CYCLE
 # define VISUALIZATION_TRANSITION_TIME 1000 * 10
