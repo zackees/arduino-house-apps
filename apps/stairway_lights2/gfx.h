@@ -13,5 +13,6 @@ bool sensor_external_triggered();
 
 void gfx_init();
 void gfx_show();
+void gfx_clear();
 
 #endif  // _GFX_H_

@@ -46,7 +46,7 @@ void fire_visualizer_monophonic(bool activated);
 
 // Entry point for running the fire visualizer.
 // Returns the number of milliseconds until this visualizer should be run again.
-uint32_t fire_loop(bool sensor_active_top, bool sensor_active_bottom) {
+uint32_t fire_loop(bool clear, bool sensor_active_top, bool sensor_active_bottom) {
   // Add entropy to random number generator; we use a lot of it.
   //random16_add_entropy(random(~0xffff));
 
@@ -130,7 +130,7 @@ void setup_firevisualizer() {
   // Swap in a new color pallet if there is a most recent key.
   {
     CHSV chsv;
-    chsv.setHSV(static_cast<byte>(255),
+    chsv.setHSV(static_cast<byte>(128),
                 static_cast<byte>(255),
                 static_cast<byte>(255));
     CRGB rgb;
@@ -139,7 +139,7 @@ void setup_firevisualizer() {
   }
   {
     CHSV chsv;
-    chsv.setHSV(static_cast<byte>(128),
+    chsv.setHSV(static_cast<byte>(255),
                 static_cast<byte>(255),
                 static_cast<byte>(255));
     CRGB rgb;

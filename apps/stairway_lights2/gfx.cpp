@@ -28,3 +28,10 @@ bool sensor_pir_triggered() {
 bool sensor_external_triggered() {
   return digitalRead(PIN_EXTERNAL_SIG) == LOW;
 }
+
+void gfx_clear() {
+  for (int i = 0; i < NUM_LEDS; ++i) {
+    leds[i] = CRGB::Black;
+    display_leds[i] = CRGB::Black;
+  }
+}

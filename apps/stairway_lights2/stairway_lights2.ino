@@ -40,6 +40,21 @@ void set_status_led(int val) {
   digitalWrite(PIN_STATUS_LED, val);
 }
 
+
+uint32_t timed_index() {
+  static uint32_t idx = 0;
+  uint32_t now = millis();
+  static uint32_t prev = now;
+  if (now - prev > 10000) {
+    prev = now;
+    // do event here
+    idx++;
+  }
+  return idx;
+}
+
+
+
 void loop() {
   darkness_painter.Update(NUM_LEDS);
   bool sensor_active_top = sensor_external_triggered();
@@ -57,16 +72,20 @@ void loop() {
   #if 1
   active = (millis() % 4000ul) < 2000;
   #endif
-
-
-  uint32_t idx = (millis() % 9000ul) / 3001ul;  // 0->2
-
-  switch (idx) {
-    case 0: { delay_ms = basicfadeingamma_loop(sensor_active_top, sensor_active_bottom); break; }
-    case 1: { delay_ms = fire_loop(sensor_active_top, sensor_active_bottom);             break; }
-    case 2: { delay_ms = vis_loop(sensor_active_top, sensor_active_bottom);              break; }
+  //uint32_t idx = (millis() % 9000ul) / 3001ul;  // 0->2
+  uint32_t idx = timed_index() % 3;
+  static uint32_t prev_idx = idx;
+  bool clear = idx != prev_idx;
+  if (clear) {
+    gfx_clear();
   }
-
+  prev_idx = idx;
+  switch (idx) {
+    case 0:  { delay_ms = basicfadeingamma_loop(clear, sensor_active_top, sensor_active_bottom); break; }
+    case 1:  { delay_ms = fire_loop(clear, sensor_active_top, sensor_active_bottom);             break; }
+    case 2:  { delay_ms = vis_loop(clear, sensor_active_top, sensor_active_bottom);              break; }
+    default: { idx = 0;                                                                          break; }
+  }
   delay(delay_ms);
 
   for (int i = 0; i < NUM_LEDS; ++i) {

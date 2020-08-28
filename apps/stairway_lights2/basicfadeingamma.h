@@ -36,7 +36,7 @@ const uint8_t gamma8[] = {
   215,218,220,223,225,228,231,233,236,239,241,244,247,249,252,255 };
 
 
-int basicfadeingamma_loop(bool sensor_active_top, bool sensor_active_bottom) {
+int basicfadeingamma_loop(bool clear, bool sensor_active_top, bool sensor_active_bottom) {
   random16_set_seed(535);                                                           // The randomizer needs to be re-set each time through the loop in order for the 'random' numbers to be the same each time through.
   for (int i = 0; i<NUM_LEDS; i++) {
     uint8_t fader = sin8(millis()/random8(10,20));                                  // The random number for each 'i' will be the same every time.

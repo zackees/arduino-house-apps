@@ -26,7 +26,7 @@ class DurationTimer {
 
 DurationTimer activeTimer;
 
-int vis_loop(bool sensor_active_top, bool sensor_active_bottom) {
+int vis_loop(bool clear, bool sensor_active_top, bool sensor_active_bottom) {
   static int global_brightness = 0;
   if (sensor_active_top || sensor_active_bottom) {
     activeTimer.Restart(VIS_DURATION);
