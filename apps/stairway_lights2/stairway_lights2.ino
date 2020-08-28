@@ -4,7 +4,7 @@
 #define PIN_STATUS_LED 13
 #define PIN_EXTERNAL_SIG 32
 #define PIN_PIR 27
-#define NUM_LEDS 75
+#define NUM_LEDS 151
 
 #include "FastLED.h"
 CRGB leds[NUM_LEDS];
@@ -15,6 +15,7 @@ CRGB leds[NUM_LEDS];
 
 #include "simplex_noise.h"
 #include "fire_visualizer.h"
+#include "basicfadeingamma.h"
 
 
 
@@ -36,7 +37,8 @@ void setup() {
   Serial.println("Init ok");
   pinMode(PIN_STATUS_LED, OUTPUT);
   pinMode(PIN_EXTERNAL_SIG, INPUT);
-  pinMode(PIN_PIR, INPUT);                                                                                                                
+  pinMode(PIN_PIR, INPUT);
+  setup_firevisualizer();                                                                                                     
 }
 
 
@@ -206,19 +208,31 @@ void vis_loop() {
 }
 
 void loop() {
-  #if 0
-  FillBlack(leds);
-  fire_loop();
+  bool internal_sig = digitalRead(PIN_PIR) == HIGH;
+  int external_sig = digitalRead(PIN_EXTERNAL_SIG) == LOW;
+
+  bool active = internal_sig || external_sig;
+
+  #if 1
+  active = (millis() % 4000ul) < 2000;
+  #endif
+
+  
+  #if 1
+  basicfadeingamma_loop();
+  delay(0);
+  #elif 0
+  //FillBlack(leds);
+  int delay_factor = fire_loop(active);
+  delay(delay_factor);
+  
   #elif 0
   vis_loop();
   #else
   //update_status_led();
   //do_draw_test();
-  bool internal_sig = digitalRead(PIN_PIR) == HIGH;
-  int external_sig = digitalRead(PIN_EXTERNAL_SIG) == LOW;
-  Serial.print("EXTERNAL_SIG: "); Serial.println(external_sig);
-  set_status_led(external_sig || internal_sig);
-  if (external_sig || internal_sig) {
+  set_status_led(active);
+  if (active) {
     do_draw_test();
   }
   #endif

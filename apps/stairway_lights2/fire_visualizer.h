@@ -5,7 +5,7 @@
 #define NUM_ROWS NUM_LEDS
 
 // Number of fire pixels.
-#define NUM_FIRE_LEDS NUM_LEDS
+#define NUM_FIRE_LEDS (NUM_LEDS / 2)
 
 
 // DEPRECATED.
@@ -46,15 +46,12 @@
 // color palette every time through the loop, producing "rainbow fire".
 
 
-void setup_firevisualizer() {
-}
 
-
-void fire_visualizer_monophonic();
+void fire_visualizer_monophonic(bool activated);
 
 // Entry point for running the fire visualizer.
 // Returns the number of milliseconds until this visualizer should be run again.
-uint32_t fire_loop() {
+uint32_t fire_loop(bool activated) {
   // Add entropy to random number generator; we use a lot of it.
   //random16_add_entropy(random(~0xffff));
 
@@ -68,16 +65,16 @@ uint32_t fire_loop() {
   //   CRGB darkcolor  = CHSV(hue,255,192); // pure hue, three-quarters brightness
   //   CRGB lightcolor = CHSV(hue,128,255); // half 'whitened', full brightness
   //   pallete = CRGBPalette16( CRGB::Black, darkcolor, lightcolor, CRGB::White);
-  fire_visualizer_monophonic();
-  return 4;
+  fire_visualizer_monophonic(activated);
+  return 30;
 }
 
 
 
 
-class Fire2012WithPallete {
+class Fire2012WithPalette {
  public:
-  Fire2012WithPallete() : heat(), fire_leds() {
+  Fire2012WithPalette() : heat(), fire_leds() {
     pallete = HeatColors_p;
     heat_scale = 1.0;
     //pallete = CRGBPalette16( CRGB::Black, CRGB::Green, CRGB::Blue, CRGB::White);
@@ -96,14 +93,6 @@ class Fire2012WithPallete {
 
   // Two versions of this function. The enable_sparking lights up the visualizer.
   void Run(bool enable_sparking, int cooling) {
-    Serial.println("Running Fire2012");
-    // Array of temperature readings at each simulation cell
-    //static byte heat[NUM_FIRE_LEDS] = {0};
-
-    // Kind of a hack to get the device to cooldown more.
-    //if (heat_scale < 1.0) {
-    //}
-
     // Step 1.  Cool down every cell a little
     for (int i = 0; i < NUM_FIRE_LEDS; i++) {
       heat[i] = qsub8(heat[i],  random8(0, ((cooling * 10) / NUM_FIRE_LEDS) + 2));
@@ -111,7 +100,7 @@ class Fire2012WithPallete {
   
     // Step 2.  Heat from each cell drifts 'up' and diffuses a little
     for (int k= NUM_FIRE_LEDS - 1; k >= 2; k--) {
-      heat[k] = (heat[k - 1] + heat[k - 2] + heat[k - 2] ) / 3;
+      heat[k] = (heat[k - 1] + heat[k - 1] + heat[k - 1] + heat[k - 2] ) / 4;
     }
     
     // Step 3.  Randomly ignite new 'sparks' of heat near the bottom
@@ -142,41 +131,61 @@ class Fire2012WithPallete {
 };
 
 
-void fire_visualizer_monophonic() {
-  // COOLING: How much does the air cool as it rises?
-  // Less cooling = taller flames.  More cooling = shorter flames.
-  // Default 55, suggested range 20-100 
-  int cooling = 120;
-  static Fire2012WithPallete fire_simulator;
-  bool any_on = true;
-  int cooling_factor = cooling;
-  static bool most_recent_key = false;  // DEBUG
+Fire2012WithPalette fire_simulator[2];
 
-  float heat_scale = 1.0f;
-  if (most_recent_key) {
-    most_recent_key = !most_recent_key;  // DEBUG
-    // Swap in a new color pallet if there is a most recent key.
 
+void setup_firevisualizer() {
+  // Swap in a new color pallet if there is a most recent key.
+  {
     CHSV chsv;
     chsv.setHSV(static_cast<byte>(255),
                 static_cast<byte>(255),
                 static_cast<byte>(255));
     CRGB rgb;
     hsv2rgb_rainbow(chsv, rgb);
-    fire_simulator.pallete = CRGBPalette16(CRGB::Black, rgb, CRGB::White);
-    float heat_scale = 128.0 / 90.f;  // heat scale could > 1.0.
-    if (heat_scale < .15f) {
-      heat_scale = .15f;
-    }
+    fire_simulator[0].pallete = CRGBPalette16(CRGB::Black, rgb, CRGB::White);
+  }
+  {
+    CHSV chsv;
+    chsv.setHSV(static_cast<byte>(128),
+                static_cast<byte>(255),
+                static_cast<byte>(255));
+    CRGB rgb;
+    hsv2rgb_rainbow(chsv, rgb);
+    fire_simulator[0].pallete = CRGBPalette16(CRGB::Black, rgb, CRGB::White);
+  }
+}
 
-    if (heat_scale > 1.0) {
-      cooling_factor = cooling / heat_scale; 
-    }
-    fire_simulator.heat_scale = heat_scale;
+
+
+void fire_visualizer_monophonic(bool activated) {
+  // COOLING: How much does the air cool as it rises?
+  // Less cooling = taller flames.  More cooling = shorter flames.
+  // Default 55, suggested range 20-100 
+  int cooling = 70;
+
+  int cooling_factor = cooling;
+  static bool most_recent_key = false;  // DEBUG
+
+  float heat_scale = 128.0 / 90.f;  // heat scale could > 1.0.
+  if (heat_scale < .15f) {
+    heat_scale = .15f;
   }
-  fire_simulator.Run(any_on, cooling_factor);
-  for (int x = 0; x < NUM_LEDS; x++) {
-    leds[x] = fire_simulator.fire_leds[x];
+
+#if 0
+  if (heat_scale > 1.0) {
+    cooling_factor = cooling / heat_scale; 
   }
+#endif
+  for (int i = 0; i < 2; ++i) {
+    fire_simulator[i].heat_scale = heat_scale;
+    fire_simulator[i].Run(activated, cooling_factor);
+  }
+
+  for (int i = 0; i < NUM_FIRE_LEDS; i++) {
+    leds[i] = fire_simulator[0].fire_leds[i];
+    leds[NUM_LEDS-i-1] = fire_simulator[1].fire_leds[i];
+  }
+  //     leds[NUM_FIRE_LEDS-i-1] = fire_simulator[1].fire_leds[i];
   FastLED.show();
 }
