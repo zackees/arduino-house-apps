@@ -9,7 +9,7 @@
 #include "basicfadeingamma.h"
 #include "darkness.h"
 #include "sensors.h"
-#include "noisewave_visualizer.h"
+#include "vis_noisewave.h"
 
 DarknessPainter darkness_painter;
 // P9813
@@ -59,7 +59,7 @@ void loop() {
   #endif
 
 
-  uint32_t idx = (millis() % 3000ul) / 1000ul;  // 0->2
+  uint32_t idx = (millis() % 9000ul) / 3001ul;  // 0->2
 
   switch (idx) {
     case 0: { delay_ms = basicfadeingamma_loop(sensor_active_top, sensor_active_bottom); break; }

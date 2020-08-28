@@ -1,7 +1,28 @@
 
+
+#include "Arduino.h"
+#include "vis_noisewave.h"
+#include "simplex_noise.h"
+#include "gfx.h"
+
 //#define VIS_DURATION 1000 * 60 * 10  // 10 minutes
 #define VIS_DURATION 1000 * 5   // 5 seconds
 
+
+class DurationTimer {
+ public:
+  DurationTimer() : mStartTime(0), mDurationMs(0) {}
+  void Restart(unsigned long duration_ms) {
+    mStartTime = millis();
+    mDurationMs = duration_ms;
+  }
+  
+  bool Active() const {
+    return (mDurationMs > (millis() - mStartTime));
+  }
+  unsigned long mStartTime;
+  unsigned long mDurationMs;
+};
 
 DurationTimer activeTimer;
 
@@ -46,7 +67,6 @@ int vis_loop(bool sensor_active_top, bool sensor_active_bottom) {
       leds[i].g = g;
       leds[i].b = b;
     }
-   
     unsigned long delta_t = millis() - start_t;
     Serial.print("strip population took: "); Serial.print(delta_t); Serial.println("ms");
   }

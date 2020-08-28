@@ -1,4 +1,10 @@
 
+
+#ifndef _SIMPLEX_NOISE_H_
+#define _SIMPLEX_NOISE_H_
+
+#include "FastLED.h"
+
 struct NoiseGenerator {
 
   NoiseGenerator() {
@@ -24,3 +30,5 @@ struct NoiseGenerator {
   int32_t iteration_scale;
   unsigned long time_multiplier;
 };
+
+#endif  // _SIMPLEX_NOISE_H_
