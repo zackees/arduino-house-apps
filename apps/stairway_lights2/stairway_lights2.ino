@@ -2,7 +2,6 @@
 
 
 #include "defs.h"
-
 #include "gfx.h"
 
 #include "simplex_noise.h"
@@ -19,19 +18,16 @@ void setup() {
   Serial.begin(9600);  // Doesn't matter for teensy.
   Serial.println("Init ok");
   pinMode(PIN_STATUS_LED, OUTPUT);
-  pinMode(PIN_EXTERNAL_SIG, INPUT);
-  pinMode(PIN_PIR, INPUT);
   setup_firevisualizer();
   gfx_init();
+  sensors_init();
 }
-
 
 void FillBlack(CRGB* strip) {
   for (int i = 0; i < NUM_LEDS; ++i) {
     strip[i] = CRGB::Black;
   }
 }
-
 
 void update_status_led() {
   uint32_t time = millis();
@@ -44,77 +40,34 @@ void set_status_led(int val) {
   digitalWrite(PIN_STATUS_LED, val);
 }
 
-
-
-void do_draw_test() {
-  // Turn the LED on, then pause
-  for(int i=0;i<NUM_LEDS;i++){
-    leds[i] = CRGB::Red;
-    gfx_show();
-    leds[i] = CRGB::Black;
-    delay(2);
-  }
-  gfx_show();
-  for(int i=0;i<NUM_LEDS;i++){
-    leds[i] = CRGB::Green;
-    gfx_show();
-    leds[i] = CRGB::Black;
-    delay(2);
-  }
-  FastLED.show();
-  for(int i=0;i<NUM_LEDS;i++){
-    leds[i] = CRGB::Blue;
-    gfx_show();
-    leds[i] = CRGB::Black;
-    delay(2);
-  }
-}
-
-
-
 void loop() {
   darkness_painter.Update(NUM_LEDS);
-  
-  bool internal_sig = digitalRead(PIN_PIR) == HIGH;
-  int external_sig = digitalRead(PIN_EXTERNAL_SIG) == LOW;
-
-  bool active = internal_sig || external_sig;
+  bool sensor_active_top = sensor_external_triggered();
+  bool sensor_active_bottom = sensor_pir_triggered();
+  bool active = sensor_active_top || sensor_active_bottom;
   set_status_led(active);
-  
-
+  int delay_ms = 0;
   if (active) {
     static uint32_t s_last_time = 0;
-
     if (s_last_time == 0 || (millis() - s_last_time > 1000 * 10)) {
       darkness_painter.Start();
       s_last_time = millis();
     }
   }
-
   #if 1
   active = (millis() % 4000ul) < 2000;
   #endif
 
-  
-  #if 1
-  basicfadeingamma_loop();
-  delay(0);
-  #elif 0
-  //FillBlack(leds);
-  int delay_factor = fire_loop(active);
-  delay(delay_factor);
-  
-  #elif 0
-  vis_loop();
-  #else
-  //update_status_led();
-  //do_draw_test();
 
-  if (active) {
-    do_draw_test();
+  uint32_t idx = (millis() % 3000ul) / 1000ul;  // 0->2
+
+  switch (idx) {
+    case 0: { delay_ms = basicfadeingamma_loop(sensor_active_top, sensor_active_bottom); break; }
+    case 1: { delay_ms = fire_loop(sensor_active_top, sensor_active_bottom);             break; }
+    case 2: { delay_ms = vis_loop(sensor_active_top, sensor_active_bottom);              break; }
   }
-  #endif
 
+  delay(delay_ms);
 
   for (int i = 0; i < NUM_LEDS; ++i) {
     char data[100];

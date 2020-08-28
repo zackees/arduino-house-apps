@@ -19,3 +19,12 @@ void gfx_init() {
 void gfx_show() {
   FastLED.show();
 }
+
+bool sensor_pir_triggered() {
+  return digitalRead(PIN_PIR) == HIGH;
+}
+
+
+bool sensor_external_triggered() {
+  return digitalRead(PIN_EXTERNAL_SIG) == LOW;
+}

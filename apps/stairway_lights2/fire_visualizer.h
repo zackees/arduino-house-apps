@@ -15,8 +15,7 @@
 //#define SPARKING 50
 
 
-
-
+void fire_visualizer_monophonic(bool activated);
 
 // Fire2012 with programmable Color Palette
 //
@@ -45,13 +44,9 @@
 // The dynamic palette shows how you can change the basic 'hue' of the
 // color palette every time through the loop, producing "rainbow fire".
 
-
-
-void fire_visualizer_monophonic(bool activated);
-
 // Entry point for running the fire visualizer.
 // Returns the number of milliseconds until this visualizer should be run again.
-uint32_t fire_loop(bool activated) {
+uint32_t fire_loop(bool sensor_active_top, bool sensor_active_bottom) {
   // Add entropy to random number generator; we use a lot of it.
   //random16_add_entropy(random(~0xffff));
 
@@ -65,11 +60,9 @@ uint32_t fire_loop(bool activated) {
   //   CRGB darkcolor  = CHSV(hue,255,192); // pure hue, three-quarters brightness
   //   CRGB lightcolor = CHSV(hue,128,255); // half 'whitened', full brightness
   //   pallete = CRGBPalette16( CRGB::Black, darkcolor, lightcolor, CRGB::White);
-  fire_visualizer_monophonic(activated);
+  fire_visualizer_monophonic(sensor_active_top || sensor_active_bottom);
   return 30;
 }
-
-
 
 
 class Fire2012WithPalette {
@@ -89,7 +82,6 @@ class Fire2012WithPalette {
     // Third, here's a simpler, three-step gradient, from black to red to white
     //   pallete = CRGBPalette16( CRGB::Black, CRGB::Red, CRGB::White);
   }
-
 
   // Two versions of this function. The enable_sparking lights up the visualizer.
   void Run(bool enable_sparking, int cooling) {
