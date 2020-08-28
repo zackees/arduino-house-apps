@@ -41,7 +41,7 @@ void basicfadeingamma();
 void basicfadeingamma_loop() {
 
   basicfadeingamma();
-  FastLED.show();
+
   
 } // loop()
 

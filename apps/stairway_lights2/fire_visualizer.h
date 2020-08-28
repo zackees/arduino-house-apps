@@ -186,6 +186,4 @@ void fire_visualizer_monophonic(bool activated) {
     leds[i] = fire_simulator[0].fire_leds[i];
     leds[NUM_LEDS-i-1] = fire_simulator[1].fire_leds[i];
   }
-  //     leds[NUM_FIRE_LEDS-i-1] = fire_simulator[1].fire_leds[i];
-  FastLED.show();
 }

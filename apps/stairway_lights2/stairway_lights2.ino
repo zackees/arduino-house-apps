@@ -8,6 +8,7 @@
 
 #include "FastLED.h"
 CRGB leds[NUM_LEDS];
+CRGB display_leds[NUM_LEDS];  // Led's that are displayed.
 
 #define DATA_PIN 8
 #define CLOCK_PIN 9
@@ -16,13 +17,15 @@ CRGB leds[NUM_LEDS];
 #include "simplex_noise.h"
 #include "fire_visualizer.h"
 #include "basicfadeingamma.h"
-
+#include "darkness.h"
 
 
 
 //#define VIS_DURATION 1000 * 60 * 10  // 10 minutes
 #define VIS_DURATION 1000 * 5   // 5 seconds
 
+
+DarknessPainter darkness_painter;
 
 
 // P9813
@@ -31,14 +34,14 @@ void setup() {
   Serial.begin(9600);  // Doesn't matter for teensy.
   delay(500);
   //FastLED.addLeds<APA102, DATA_PIN, CLOCK_PIN, BGR>(leds, NUM_LEDS);
-  FastLED.addLeds<P9813, DATA_PIN, CLOCK_PIN, RGB>(leds, NUM_LEDS);
+  FastLED.addLeds<P9813, DATA_PIN, CLOCK_PIN, RGB>(display_leds, NUM_LEDS);
   // put your setup code here, to run once:
 
   Serial.println("Init ok");
   pinMode(PIN_STATUS_LED, OUTPUT);
   pinMode(PIN_EXTERNAL_SIG, INPUT);
   pinMode(PIN_PIR, INPUT);
-  setup_firevisualizer();                                                                                                     
+  setup_firevisualizer();
 }
 
 
@@ -207,11 +210,25 @@ void vis_loop() {
   }
 }
 
+
 void loop() {
+  darkness_painter.Update(NUM_LEDS);
+  
   bool internal_sig = digitalRead(PIN_PIR) == HIGH;
   int external_sig = digitalRead(PIN_EXTERNAL_SIG) == LOW;
 
   bool active = internal_sig || external_sig;
+  set_status_led(active);
+  
+
+  if (active) {
+    static uint32_t s_last_time = 0;
+
+    if (s_last_time == 0 || (millis() - s_last_time > 1000 * 10)) {
+      darkness_painter.Start();
+      s_last_time = millis();
+    }
+  }
 
   #if 1
   active = (millis() % 4000ul) < 2000;
@@ -231,9 +248,28 @@ void loop() {
   #else
   //update_status_led();
   //do_draw_test();
-  set_status_led(active);
+
   if (active) {
     do_draw_test();
   }
   #endif
+
+
+  for (int i = 0; i < NUM_LEDS; ++i) {
+    char data[100];
+    float b = darkness_painter.Brightness(i);
+    //sprintf(data, "[%d]: %f\n", i, b);
+    //Serial.print(data);
+    //Serial.print('['); Serial.print(i); Serial.print(']: '); Serial.println("");
+    if (b <= 0.0f) {
+      display_leds[i] = CRGB::Black;
+    }
+    if (b < 1.0f) {
+      display_leds[i] = CRGB(leds[i].r * b, leds[i].g * b, leds[i].b * b);
+    } else {
+      display_leds[i] = leds[i];
+    }
+  }
+
+  FastLED.show();
 }
