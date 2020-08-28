@@ -52,11 +52,11 @@ class InterpAnimator {
 };
 
 ///////////////////////////////////////////////////
-class DarknessPainter {
+class FxEaseIn {
  public:
-  DarknessPainter() { Init(); }
+  FxEaseIn() { Init(); }
   void Start() {
-    // go from 1->0 in 10 seconds.
+    // go from 1->0 in 10 seconds (update: values might be updated from comment.)
     interp_anim_.SetAll(1.0f, -0.5f, 5.0f);
   }
   
@@ -72,6 +72,42 @@ class DarknessPainter {
     float b = mapf(dist, dist_full_color_, dist_full_black_, 0.0f, 1.0f);
     b = constrain(b, 0.0f, 1.0f);
     return b;
+  }
+ private:
+  void Init() {
+    dist_full_black_ = 0;
+    dist_full_color_ = 0;
+  }
+  InterpAnimator interp_anim_;
+  float dist_full_color_;
+  float dist_full_black_;
+  int mid_point_;
+};
+
+
+
+///////////////////////////////////////////////////
+// experimental.
+class FxEaseOut {
+ public:
+  FxEaseOut() { Init(); }
+  void Start() {
+    // go from 1->0 in 10 seconds (update: values might be updated from comment.)
+    interp_anim_.SetAll(1.0f, -0.5f, 5.0f);
+  }
+  
+  void Update(int length) {
+    float t = interp_anim_.Value();
+    mid_point_ = length / 2;
+    dist_full_color_ = t * mid_point_;
+    dist_full_black_ = (t + .5) * mid_point_;
+  }
+  
+  float Brightness(int i) {
+    int dist = abs(mid_point_ - i);
+    float b = mapf(dist, dist_full_color_, dist_full_black_, 0.0f, 1.0f);
+    b = constrain(b, 0.0f, 1.0f);
+    return 1.0 - b;
   }
  private:
   void Init() {
