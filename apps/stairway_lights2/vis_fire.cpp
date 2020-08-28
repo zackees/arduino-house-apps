@@ -58,7 +58,8 @@ uint32_t fire_loop(bool clear, bool sensor_active_top, bool sensor_active_bottom
   //   CRGB darkcolor  = CHSV(hue,255,192); // pure hue, three-quarters brightness
   //   CRGB lightcolor = CHSV(hue,128,255); // half 'whitened', full brightness
   //   pallete = CRGBPalette16( CRGB::Black, darkcolor, lightcolor, CRGB::White);
-  fire_visualizer_monophonic(clear, sensor_active_top || sensor_active_bottom);
+  bool enable_sparking = true;
+  fire_visualizer_monophonic(clear, enable_sparking);
   return 30;
 }
 
@@ -115,7 +116,7 @@ class Fire2012WithPalette {
 
   void clear() {
     memset(heat, 0, sizeof(heat));
-    memset(fire_leds, 0, fire_leds);
+    memset(fire_leds, 0, sizeof(fire_leds));
   }
 
  //private:
@@ -166,6 +167,7 @@ void fire_visualizer_monophonic(bool clear, bool activated) {
   if (heat_scale < .15f) {
     heat_scale = .15f;
   }
+
 
   if (clear) {
     for (int i = 0; i < 2; ++i) {

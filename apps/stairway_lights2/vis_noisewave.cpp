@@ -9,73 +9,22 @@
 #define VIS_DURATION 1000 * 5   // 5 seconds
 
 
-class DurationTimer {
- public:
-  DurationTimer() : mStartTime(0), mDurationMs(0) {}
-  void Restart(unsigned long duration_ms) {
-    mStartTime = millis();
-    mDurationMs = duration_ms;
-  }
-  
-  bool Active() const {
-    return (mDurationMs > (millis() - mStartTime));
-  }
-  unsigned long mStartTime;
-  unsigned long mDurationMs;
-};
+void setup_noisewave() {
 
-DurationTimer activeTimer;
+}
 
-int vis_loop(bool clear, bool sensor_active_top, bool sensor_active_bottom) {
-  static int global_brightness = 0;
-  if (sensor_active_top || sensor_active_bottom) {
-    activeTimer.Restart(VIS_DURATION);
-  }
-  unsigned long time_now = millis();
-  bool increase_brightness = false;
-  if (activeTimer.Active()) { increase_brightness = true; }
-  if (increase_brightness) {
-    global_brightness += 4;
-  } else {
-    global_brightness--;
-  }
-  if (global_brightness < -255) {
-    global_brightness = -255;
-  } else if (global_brightness > 0) {
-    global_brightness = 0;
-  }
-
-  {
-    unsigned long start_t = millis();
-    unsigned long time_now = start_t;
-    NoiseGenerator noiseGeneratorRed (500, 14);
-    NoiseGenerator noiseGeneratorBlue (500, 10);
-  
-    for (int32_t i = 0; i < NUM_LEDS; ++i) {
-     
-      int r = noiseGeneratorRed.LedValue(i, time_now);
-      int b = noiseGeneratorBlue.LedValue(i, time_now + 100000) >> 1;
-      int g = 0;
-  
-      if (global_brightness < 0) {
-        r = max(0, r + global_brightness);
-        g = max(0, g + global_brightness);
-        b = max(0, b + global_brightness);
-      }
- 
-      leds[i].r = r;
-      leds[i].g = g;
-      leds[i].b = b;
-    }
-    unsigned long delta_t = millis() - start_t;
-    Serial.print("strip population took: "); Serial.print(delta_t); Serial.println("ms");
-  }
-
-  {
-    unsigned long start_t = millis();
-    FastLED.show();
-    unsigned long delta_t = millis() - start_t;
-    Serial.print("strip.show() took: "); Serial.print(delta_t); Serial.println("ms");
+int noisewave_loop(bool clear, bool sensor_active_top, bool sensor_active_bottom) {
+  unsigned long start_t = millis();
+  unsigned long time_now = start_t;
+  NoiseGenerator noiseGeneratorRed (500, 14);
+  NoiseGenerator noiseGeneratorBlue (500, 10);
+  for (int32_t i = 0; i < NUM_LEDS; ++i) {
+    int r = noiseGeneratorRed.LedValue(i, time_now);
+    int b = noiseGeneratorBlue.LedValue(i, time_now + 100000) >> 1;
+    int g = 0;
+    leds[i].r = r;
+    leds[i].g = g;
+    leds[i].b = b;
   }
   return 0;
 }
