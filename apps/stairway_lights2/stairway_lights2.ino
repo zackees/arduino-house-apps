@@ -9,7 +9,6 @@
 #include "simplex_noise.h"
 #include "vis_fire.h"
 #include "vis_rainbowdrops.h"
-#include "darkness.h"
 #include "sensors.h"
 #include "vis_noisewave.h"
 
@@ -151,5 +150,4 @@ void loop() {
   memcpy(display_leds, leds, sizeof(leds));
   fx_update(now, active, display_leds, NUM_LEDS);
   gfx_show();
-
 }
