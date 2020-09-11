@@ -161,7 +161,6 @@ void fire_visualizer_monophonic(bool clear, bool activated) {
   int cooling = 70;
 
   int cooling_factor = cooling;
-  static bool most_recent_key = false;  // DEBUG
 
   float heat_scale = 128.0 / 90.f;  // heat scale could > 1.0.
   if (heat_scale < .15f) {

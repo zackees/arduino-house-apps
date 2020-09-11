@@ -4,6 +4,8 @@
 #include "defs.h"
 #include "gfx.h"
 
+#include "fx.h"
+
 #include "simplex_noise.h"
 #include "vis_fire.h"
 #include "vis_rainbowdrops.h"
@@ -14,28 +16,22 @@
 #ifdef _DEBUG_TESTING
 # define FORCE_ACTIVATION_CYCLE
 # define VISUALIZATION_TRANSITION_TIME 1000 * 10
-# define ACTIVE_TIME 1000 * 10 // 10 seconds.
-# define VISUALIZER_TIME 1000  // 1 minute
 #else
 # define VISUALIZATION_TRANSITION_TIME 1000 * 60 * 60 * 1  // 1 hour then transition.
-# define ACTIVE_TIME 1000 * 5 * 10 // How long does the trigger stay active for.
-# define VISUALIZER_TIME 1000 * 60 * 10  // 10 minute - the length of time for vis to be active. 
 #endif  // _DEBUG_TESTING
 
 //#define FORCED_VIS_INDEX 1  // Fire vis
 //#define DBG_FORCE_CLEAR
 
-FxEaseIn fx_ease_in;
-
 void setup() {
   Serial.begin(9600);  // Doesn't matter for teensy.
+  delay(1000);
   Serial.println("Init ok");
   pinMode(PIN_STATUS_LED, OUTPUT);
   setup_firevisualizer();
   setup_noisewave();
   gfx_init();
   sensors_init();
-  fx_ease_in.Start();
 }
 
 void FillBlack(CRGB* strip) {
@@ -76,19 +72,6 @@ class Timer {
    uint32_t mStartTime;
 };
 
-bool is_active(uint32_t now, bool sensor_active) {
-  // 
-  static uint32_t s_last_active = 0; 
-  if (sensor_active) {
-    s_last_active = now;
-  }
-  if (s_last_active == 0) {
-    return false;  // Not triggered yet.
-  }
-  uint32_t active_time = now - s_last_active;
-  return active_time < ACTIVE_TIME;
-}
-
 void dbg_force_clear(bool* dst) {
   #ifdef DBG_FORCE_CLEAR
   uint32_t now = millis();
@@ -122,14 +105,10 @@ uint32_t not_active_duration(uint32_t now, bool active) {
 
 void loop() {
   uint32_t now = millis();
-  fx_ease_in.Update(NUM_LEDS);
   bool sensor_active_top = sensor_external_triggered();
   bool sensor_active_bottom = sensor_pir_triggered();
-  bool active = is_active(now, sensor_active_top || sensor_active_bottom);
+  bool active = sensor_active_top || sensor_active_bottom;
   uint32_t not_active_time = not_active_duration(now, active);
-  static bool s_prev_active = false;
-  bool active_changed = s_prev_active != active;
-  s_prev_active = active;
 
   #ifdef FORCE_ACTIVATION_CYCLE
   active = (now % 8000ul) < 2000;
@@ -167,50 +146,10 @@ void loop() {
     case 2:  { delay_ms = noisewave_loop(clear, sensor_active_top, sensor_active_bottom);        break; }
   }
   delay(delay_ms);
-  bool neads_ease_in = false;
-  
-  // Conditionally start the ease in. Other wise it is not reset.
-  if (active && active_changed && (idx == 0 || idx == 2)) {
-    bool all_black = true;
-    for (int i = 0; i < NUM_LEDS; ++i) {
-      const auto& c = display_leds[i];
-      if (c.r > 0 || c.g > 0 || c.b > 0) {
-        all_black = false;
-        break;
-      }
-    }
-    if (all_black) {
-      fx_ease_in.Start();
-    }
-  }
 
-  if (neads_ease_in) {
-    // Apply an overlay transition that "opens up the light" toward the middle.
-    // Essentially a darkening effect is applied to the leds.
-    for (int i = 0; i < NUM_LEDS; ++i) {
-      float b = fx_ease_in.Brightness(i);
-      if (b <= 0.0f) {
-        display_leds[i] = CRGB::Black;
-      }
-      if (b < 1.0f) {
-        display_leds[i] = CRGB(leds[i].r * b, leds[i].g * b, leds[i].b * b);
-      } else {
-        display_leds[i] = leds[i];
-      }
-    }
-  } else {
-    memcpy(display_leds, leds, sizeof(leds));
-  }
-
-  Serial.print("NOT active time: "); Serial.println(not_active_time);
-
-  // Final pass: add an ease out fx to the display leds.
-  if (not_active_time > VISUALIZER_TIME) {
-    float b = mapf(not_active_time - VISUALIZER_TIME, 0, 2000, 1, 0);
-    Serial.println(b);
-    for (int i = 0; i < NUM_LEDS; ++i) {
-      display_leds[i] = CRGB(display_leds[i].r * b, display_leds[i].g * b, display_leds[i].b * b);
-    }
-  }
+  // Copy to display leds.
+  memcpy(display_leds, leds, sizeof(leds));
+  fx_update(now, active, display_leds, NUM_LEDS);
   gfx_show();
+
 }
