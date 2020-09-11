@@ -17,8 +17,8 @@
 # define ACTIVE_TIME 1000 * 10 // 10 seconds.
 # define VISUALIZER_TIME 1000  // 1 minute
 #else
-# define VISUALIZATION_TRANSITION_TIME 1000 * 60 * 8
-# define ACTIVE_TIME 1000 * 10 // How long does the trigger stay active for.
+# define VISUALIZATION_TRANSITION_TIME 1000 * 60 * 60 * 1  // 1 hour then transition.
+# define ACTIVE_TIME 1000 * 5 * 10 // How long does the trigger stay active for.
 # define VISUALIZER_TIME 1000 * 60 * 10  // 10 minute - the length of time for vis to be active. 
 #endif  // _DEBUG_TESTING
 
@@ -35,6 +35,7 @@ void setup() {
   setup_noisewave();
   gfx_init();
   sensors_init();
+  fx_ease_in.Start();
 }
 
 void FillBlack(CRGB* strip) {
@@ -125,27 +126,35 @@ void loop() {
   bool sensor_active_top = sensor_external_triggered();
   bool sensor_active_bottom = sensor_pir_triggered();
   bool active = is_active(now, sensor_active_top || sensor_active_bottom);
-
+  uint32_t not_active_time = not_active_duration(now, active);
+  static bool s_prev_active = false;
+  bool active_changed = s_prev_active != active;
+  s_prev_active = active;
 
   #ifdef FORCE_ACTIVATION_CYCLE
   active = (now % 8000ul) < 2000;
   sensor_active_top = sensor_active_bottom = active;
   #endif
 
-  uint32_t not_active_time = not_active_duration(now, active);
-
   set_status_led(active);
   int delay_ms = 0;
 
+  const int kNumVis = 3;
+
   //uint32_t idx = (millis() % 9000ul) / 3001ul;  // 0->2
-  uint32_t idx = timed_index(now) % 3;
+  static uint32_t idx = timed_index(now) % kNumVis;
+  // After a certain amount of time allow the index to be changed.
+  if (not_active_time > 1000 * 60 * 10) {
+    idx = timed_index(now) % kNumVis;
+  }
 
   #ifdef FORCED_VIS_INDEX
   idx = FORCED_VIS_INDEX;
   #endif
 
   static uint32_t prev_idx = idx;
-  bool clear = idx != prev_idx;
+  bool clear = (idx != prev_idx);
+
   dbg_force_clear(&clear);
   if (clear) {
     gfx_clear();
@@ -158,13 +167,24 @@ void loop() {
     case 2:  { delay_ms = noisewave_loop(clear, sensor_active_top, sensor_active_bottom);        break; }
   }
   delay(delay_ms);
-  bool neads_ease_in = (idx == 0 || idx == 2);
-
-  if (neads_ease_in) {
-    // Conditionally trigger the darkness painter.
-    if (clear) {
+  bool neads_ease_in = false;
+  
+  // Conditionally start the ease in. Other wise it is not reset.
+  if (active && active_changed && (idx == 0 || idx == 2)) {
+    bool all_black = true;
+    for (int i = 0; i < NUM_LEDS; ++i) {
+      const auto& c = display_leds[i];
+      if (c.r > 0 || c.g > 0 || c.b > 0) {
+        all_black = false;
+        break;
+      }
+    }
+    if (all_black) {
       fx_ease_in.Start();
     }
+  }
+
+  if (neads_ease_in) {
     // Apply an overlay transition that "opens up the light" toward the middle.
     // Essentially a darkening effect is applied to the leds.
     for (int i = 0; i < NUM_LEDS; ++i) {
