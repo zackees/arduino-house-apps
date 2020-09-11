@@ -134,7 +134,7 @@ void setup_firevisualizer() {
   // Swap in a new color pallet if there is a most recent key.
   {
     CHSV chsv;
-    chsv.setHSV(static_cast<byte>(128),
+    chsv.setHSV(static_cast<byte>(0),
                 static_cast<byte>(255),
                 static_cast<byte>(255));
     CRGB rgb;
@@ -143,12 +143,12 @@ void setup_firevisualizer() {
   }
   {
     CHSV chsv;
-    chsv.setHSV(static_cast<byte>(255),
+    chsv.setHSV(static_cast<byte>(0),
                 static_cast<byte>(255),
                 static_cast<byte>(255));
     CRGB rgb;
     hsv2rgb_rainbow(chsv, rgb);
-    fire_simulator[0].pallete = CRGBPalette16(CRGB::Black, rgb, CRGB::White);
+    fire_simulator[1].pallete = CRGBPalette16(CRGB::Black, rgb, CRGB::White);
   }
 }
 

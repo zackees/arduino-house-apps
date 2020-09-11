@@ -2,6 +2,7 @@
 
 #include "fx.h"
 #include "defs.h"
+#include "util.h"
 
 
 class InterpAnimator {
