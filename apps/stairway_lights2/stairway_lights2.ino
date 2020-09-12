@@ -11,6 +11,7 @@
 #include "vis_rainbowdrops.h"
 #include "sensors.h"
 #include "vis_noisewave.h"
+#include "vis_pacifica.h"
 
 #ifdef _DEBUG_TESTING
 # define FORCE_ACTIVATION_CYCLE
@@ -140,9 +141,10 @@ void loop() {
 
   prev_idx = idx;
   switch (idx) {
-    case 0:  { delay_ms = basicfadeingamma_loop(clear, sensor_active_top, sensor_active_bottom); break; }
-    case 1:  { delay_ms = fire_loop(clear, sensor_active_top, sensor_active_bottom);             break; }
-    case 2:  { delay_ms = noisewave_loop(clear, sensor_active_top, sensor_active_bottom);        break; }
+    case 0:  { delay_ms = pacifica_loop         (clear, sensor_active_top, sensor_active_bottom); break; }
+    case 1:  { delay_ms = basicfadeingamma_loop (clear, sensor_active_top, sensor_active_bottom); break; }
+    case 2:  { delay_ms = fire_loop             (clear, sensor_active_top, sensor_active_bottom); break; }
+    case 3:  { delay_ms = noisewave_loop        (clear, sensor_active_top, sensor_active_bottom); break; }
   }
   delay(delay_ms);
 
