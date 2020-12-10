@@ -1,21 +1,22 @@
-/*
-  Blink
-  Turns on an LED on for one second, then off for one second, repeatedly.
- 
-  This example code is in the public domain.
+/* Hardware hookup guide:
+ *  PIR Sensor -
+ *    Rails -> Rails
+ *    Signal -> Pin 4
+ *  Pwr Switch -
+ *    Pin 1 -> Ground
+ *    Pin 2 -> 8
+ *  Led Strip -
+ *    Pin 6 -> (Through a n-channel mosfet)
+ *    
+ *  In the future, can we just use the 
  */
 
- 
-// Pin 13 has an LED connected on most Arduino boards.
-// Pin 11 has the LED on Teensy 2.0
-// Pin 6  has the LED on Teensy++ 2.0
-// Pin 13 has the LED on Teensy 3.0
-// give it a name:
+
 
 #define PIN_STATUS_LED 13
 #define PIN_PIR 4
 #define PIN_LED_STRIP 6
-#define PIN_USER_BTN 8
+#define PIN_PWR_SWITCH 8
 
 #define SERIAL_PORT_BAUD 57600
 
@@ -58,14 +59,14 @@ class AlarmTimer {
 AlarmTimer alarm_timer;
 
 bool probe_user_switch_on() {
-  pinMode(PIN_USER_BTN, OUTPUT);
-  digitalWrite(PIN_USER_BTN, LOW);
+  pinMode(PIN_PWR_SWITCH, OUTPUT);
+  digitalWrite(PIN_PWR_SWITCH, LOW);
   delayMicroseconds(5);
-  digitalWrite(PIN_USER_BTN, HIGH);
+  digitalWrite(PIN_PWR_SWITCH, HIGH);
   delayMicroseconds(5);
-  pinMode(PIN_USER_BTN, INPUT);
-  bool on = digitalRead(PIN_USER_BTN) == LOW;
-  digitalWrite(PIN_USER_BTN, LOW);
+  pinMode(PIN_PWR_SWITCH, INPUT);
+  bool on = digitalRead(PIN_PWR_SWITCH) == LOW;
+  digitalWrite(PIN_PWR_SWITCH, LOW);
   return on;
 }
 
