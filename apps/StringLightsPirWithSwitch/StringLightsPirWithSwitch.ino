@@ -5,25 +5,35 @@
   This example code is in the public domain.
  */
 
- #include "PIRSensor_RadioShack.h"
  
 // Pin 13 has an LED connected on most Arduino boards.
 // Pin 11 has the LED on Teensy 2.0
 // Pin 6  has the LED on Teensy++ 2.0
 // Pin 13 has the LED on Teensy 3.0
 // give it a name:
-int led = 13;
-int pir_sensor = 12;
-uint32_t on_duration = 1000ul * 60ul * 3ul;  // 3 min timer
-//uint32_t on_duration = 1000ul * 10ul * 1ul;  // 10 sec timer
-int user_button = 8;
-int led_strip = 3;
+
+#define PIN_STATUS_LED 13
+#define PIN_PIR 4
+#define PIN_PIR_PWR 2
+#define PIN_LED_STRIP 6
+#define PIN_USER_BTN 8
+
+#define SERIAL_PORT_BAUD 57600
+
+#define FRAME_TIME_MS 8
+
+#define DEBUG
+
+#ifdef DEBUG
+const uint32_t on_duration = 1000ul * 10ul * 1ul;  // 10 sec timer
+#else
+const uint32_t on_duration = 1000ul * 60ul * 3ul;  // 3 min timer
+#endif
+
+// Let the linker find it.
+void(* resetFunc) (void) = 0;
+
 int16_t led_value = 0;
-int pir_pwr_pin_on = 2;
-
-#define PRINTOUT_SENSORS
-
-PIRSensor_RadioShack pir(pir_sensor);
 
 class LedController {
  public:
@@ -35,18 +45,11 @@ class LedController {
   void Trigger() {
     start_time_ = millis();
   } 
-  bool Update() {
-    uint32_t now = millis();
-    if (pir.MovementDetected()) {
-#ifdef PRINTOUT_SENSORS
-      Serial.println("Y");
-#endif
+  bool Update(uint32_t time_now, bool has_movement) {
+    uint32_t now = time_now;
+    if (has_movement) {
       static uint32_t i = 0;
       start_time_ = now;
-    } else {
-#ifdef PRINTOUT_SENSORS
-      Serial.println("N");
-#endif
     }
     uint32_t delta = now - start_time_;
     return delta < on_duration;
@@ -56,47 +59,55 @@ class LedController {
 LedController led_controller;
 
 bool UserSwitchOn() {
-  pinMode(user_button, OUTPUT);
-  digitalWrite(user_button, LOW);
-  delay(1);
-  digitalWrite(user_button, HIGH);
-  delay(1);
-  pinMode(user_button, INPUT);
-  bool on = digitalRead(user_button) == LOW;
-  digitalWrite(user_button, LOW);
+  pinMode(PIN_USER_BTN, OUTPUT);
+  digitalWrite(PIN_USER_BTN, LOW);
+  delay(0);
+  digitalWrite(PIN_USER_BTN, HIGH);
+  delay(0);
+  pinMode(PIN_USER_BTN, INPUT);
+  bool on = digitalRead(PIN_USER_BTN) == LOW;
+  digitalWrite(PIN_USER_BTN, LOW);
   return on;
 }
 
-// the setup routine runs once when you press reset:
 void setup() {                
   // initialize the digital pin as an output.
-  pinMode(led, OUTPUT);
-
-  pinMode(pir_pwr_pin_on, OUTPUT);
-  digitalWrite(pir_pwr_pin_on, HIGH);
-  pinMode(pir_sensor, INPUT);
-  Serial.begin(9600);
+  pinMode(PIN_STATUS_LED, OUTPUT);
+  pinMode(PIN_PIR_PWR, OUTPUT);
+  pinMode(PIN_PIR, INPUT);
+  digitalWrite(PIN_PIR_PWR, HIGH);
+  pinMode(PIN_LED_STRIP, OUTPUT);
+  
+  Serial.begin(SERIAL_PORT_BAUD);
 }
+
 
 // the loop routine runs over and over again forever:
 void loop() {
-  //Serial.println("Hi");
-  //Serial.println(".");
 
-  static bool s_prev_switch_on = UserSwitchOn();
+  const uint32_t time_now = millis();
+
+  if (false) {
+    delay(4000);
+    Serial.println("About to reset");
+    delay(1000);
+    resetFunc();
+  }
+  
+  
   bool curr_switch_on = UserSwitchOn();
-  Serial.print(curr_switch_on ? "1": "0");
+  static bool s_prev_switch_on = curr_switch_on;
   if (curr_switch_on && (curr_switch_on != s_prev_switch_on)) {
     led_controller.Trigger();
   }
   s_prev_switch_on = curr_switch_on;
 
-  bool updated = led_controller.Update();
-  bool triggered = updated && curr_switch_on;
-  //debug
-  //led_value = UserSwitchOn() ? 255 : 0;
+  bool movement_activated = (HIGH == digitalRead(PIN_PIR));
+  digitalWrite(PIN_STATUS_LED, movement_activated ? HIGH : LOW);
 
-  //Serial.println(triggered ? "Triggered" : "Not");
+
+  bool updated = led_controller.Update(time_now, movement_activated);
+  bool triggered = updated && curr_switch_on;
 
   if (triggered) {
     led_value += 1;
@@ -109,8 +120,15 @@ void loop() {
       led_value = 0;
     }
   }
+  analogWrite(PIN_LED_STRIP, led_value);
+
+#ifdef DEBUG
+  char buff[256] = {0};
+  sprintf(buff, "movement_activated: %d, curr_switch_on: %d, led_value: %d\n",
+          movement_activated, curr_switch_on, led_value);
+  Serial.print(buff);
+#endif
+
+  while (millis() - time_now < FRAME_TIME_MS) {;}
   
-  //Serial.println(led_value);
-  digitalWrite(led, led_value == 0 ? LOW : HIGH);
-  analogWrite(led_strip, led_value);
 }
