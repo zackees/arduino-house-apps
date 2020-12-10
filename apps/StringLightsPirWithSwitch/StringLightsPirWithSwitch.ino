@@ -14,7 +14,6 @@
 
 #define PIN_STATUS_LED 13
 #define PIN_PIR 4
-#define PIN_PIR_PWR 2
 #define PIN_LED_STRIP 6
 #define PIN_USER_BTN 8
 
@@ -22,7 +21,10 @@
 
 #define FRAME_TIME_MS 8
 
-//#define DEBUG
+// Prints out the state each frame
+#define PRINT_STATE
+
+#define DEBUG
 
 #ifdef DEBUG
 const uint32_t on_duration = 1000ul * 10ul * 1ul;  // 10 sec timer
@@ -30,24 +32,21 @@ const uint32_t on_duration = 1000ul * 10ul * 1ul;  // 10 sec timer
 const uint32_t on_duration = 1000ul * 60ul * 3ul;  // 3 min timer
 #endif
 
-// Let the linker find it.
-void(* resetFunc) (void) = 0;
-
 int16_t led_value = 0;
 
-class LedController {
+class AlarmTimer {
  public:
   uint32_t start_time_;
-  LedController() {
+  AlarmTimer() {
     start_time_ = millis();
   }
 
   void Trigger() {
     start_time_ = millis();
   } 
-  bool Update(uint32_t time_now, bool has_movement) {
+  bool Update(uint32_t time_now, bool alarm) {
     uint32_t now = time_now;
-    if (has_movement) {
+    if (alarm) {
       static uint32_t i = 0;
       start_time_ = now;
     }
@@ -56,14 +55,14 @@ class LedController {
   }
 };
 
-LedController led_controller;
+AlarmTimer alarm_timer;
 
-bool UserSwitchOn() {
+bool probe_user_switch_on() {
   pinMode(PIN_USER_BTN, OUTPUT);
   digitalWrite(PIN_USER_BTN, LOW);
-  delay(0);
+  delayMicroseconds(5);
   digitalWrite(PIN_USER_BTN, HIGH);
-  delay(0);
+  delayMicroseconds(5);
   pinMode(PIN_USER_BTN, INPUT);
   bool on = digitalRead(PIN_USER_BTN) == LOW;
   digitalWrite(PIN_USER_BTN, LOW);
@@ -73,43 +72,27 @@ bool UserSwitchOn() {
 void setup() {                
   // initialize the digital pin as an output.
   pinMode(PIN_STATUS_LED, OUTPUT);
-  pinMode(PIN_PIR_PWR, OUTPUT);
   pinMode(PIN_PIR, INPUT);
-  digitalWrite(PIN_PIR_PWR, HIGH);
   pinMode(PIN_LED_STRIP, OUTPUT);
-  
   Serial.begin(SERIAL_PORT_BAUD);
 }
 
-
 // the loop routine runs over and over again forever:
 void loop() {
-
   const uint32_t time_now = millis();
-
-  if (false) {
-    delay(4000);
-    Serial.println("About to reset");
-    delay(1000);
-    resetFunc();
+  bool pwr_btn_on = probe_user_switch_on();
+  static bool s_prev_pwr_btn_on = pwr_btn_on;
+  if (pwr_btn_on && (pwr_btn_on != s_prev_pwr_btn_on)) {
+    alarm_timer.Trigger();
   }
-  
-  
-  bool curr_switch_on = UserSwitchOn();
-  static bool s_prev_switch_on = curr_switch_on;
-  if (curr_switch_on && (curr_switch_on != s_prev_switch_on)) {
-    led_controller.Trigger();
-  }
-  s_prev_switch_on = curr_switch_on;
+  s_prev_pwr_btn_on = pwr_btn_on;
 
-  bool movement_activated = (HIGH == digitalRead(PIN_PIR));
-  digitalWrite(PIN_STATUS_LED, movement_activated ? HIGH : LOW);
+  bool pir_active = (HIGH == digitalRead(PIN_PIR));
+  digitalWrite(PIN_STATUS_LED, pir_active ? HIGH : LOW);
 
+  bool triggered = alarm_timer.Update(time_now, pir_active);
 
-  bool updated = led_controller.Update(time_now, movement_activated);
-  bool triggered = updated && curr_switch_on;
-
-  if (triggered) {
+  if (triggered && pwr_btn_on) {
     led_value += 1;
     if (led_value > 255) {
       led_value = 255;
@@ -122,10 +105,11 @@ void loop() {
   }
   analogWrite(PIN_LED_STRIP, led_value);
 
-#ifdef DEBUG
+#ifdef PRINT_STATE
   char buff[256] = {0};
-  sprintf(buff, "movement_activated: %d, curr_switch_on: %d, led_value: %d\n",
-          movement_activated, curr_switch_on, led_value);
+  sprintf(buff,
+         "pwr_btn_on: %d, pir_active: %d, triggered: %d, led: %d\n",
+          pwr_btn_on, pir_active, triggered, led_value);
   Serial.print(buff);
 #endif
 
