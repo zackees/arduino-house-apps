@@ -22,7 +22,7 @@
 
 #define FRAME_TIME_MS 8
 
-#define DEBUG
+//#define DEBUG
 
 #ifdef DEBUG
 const uint32_t on_duration = 1000ul * 10ul * 1ul;  // 10 sec timer
