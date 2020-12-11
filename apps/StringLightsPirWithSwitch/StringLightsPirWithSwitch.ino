@@ -42,7 +42,6 @@ void setup() {
   pinMode(PIN_PIR, INPUT);
   pinMode(PIN_LED_STRIP, OUTPUT);
   pinMode(PIN_PWR_SWITCH, INPUT_PULLUP);
-  io_setup();
   g_ts_finish_setup = millis();
 }
 
@@ -64,13 +63,12 @@ void loop() {
     Serial.flush();
     Serial.println("Finished flush()");
     Serial.flush();
-    delay(1000);
     Serial.println("Finished!");
 #endif
   }
   
   g_first_run = false;
-  const bool pwr_btn_on = return digitalRead(PIN_PWR_SWITCH) == LOW;
+  const bool pwr_btn_on = (digitalRead(PIN_PWR_SWITCH) == LOW);
   if (first_run || (pwr_btn_on && (pwr_btn_on != g_prev_pwr_btn_on))) {
     alarm_timer.Trigger();
   }
