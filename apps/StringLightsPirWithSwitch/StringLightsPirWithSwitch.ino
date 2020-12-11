@@ -13,87 +13,68 @@
  */
 
 
-//#define DEBUG
+#include "defs.h"
+#include "io.h"
+#include "alarm_timer.h"
 
+int16_t g_led_value = 0;
+bool g_first_run = true;
+bool g_prev_pwr_btn_on = false;
 
-#define PIN_STATUS_LED 13
-#define PIN_PIR 4
-#define PIN_LED_STRIP 6
-#define PIN_PWR_SWITCH 8
-
-#define SERIAL_PORT_BAUD 57600
-
-#define FRAME_TIME_MS 8
-
-// Prints out the state each frame
-#define PRINT_STATE
-
-
-#ifdef DEBUG
-#define ON_DURATION (1000ul * 10ul * 1ul)  // 10 sec timer
-#else
-#define ON_DURATION (1000ul * 60ul * 3ul)  // 3 min timer
-#endif
-
-int16_t led_value = 0;
-
-class AlarmTimer {
- public:
-  uint32_t start_time_;
-  AlarmTimer() {
-    start_time_ = millis();
-  }
-
-  void Trigger() {
-    start_time_ = millis();
-  } 
-  uint32_t Update(uint32_t time_now, bool alarm) {
-    uint32_t now = time_now;
-    if (alarm) {
-      start_time_ = now;
-    }
-    uint32_t delta = now - start_time_;
-    return delta;
-  }
-};
 
 AlarmTimer alarm_timer;
 
-bool probe_user_switch_on() {
-  pinMode(PIN_PWR_SWITCH, OUTPUT);
-  digitalWrite(PIN_PWR_SWITCH, LOW);
-  delayMicroseconds(5);
-  digitalWrite(PIN_PWR_SWITCH, HIGH);
-  delayMicroseconds(5);
-  pinMode(PIN_PWR_SWITCH, INPUT);
-  bool on = digitalRead(PIN_PWR_SWITCH) == LOW;
-  digitalWrite(PIN_PWR_SWITCH, LOW);
-  return on;
+uint32_t g_earliest_time = millis();
+uint32_t g_ts_finish_setup = 0;  // timestamp
+uint32_t g_ts_start_loop = 0;
+
+void write_led(int value) {
+  analogWrite(PIN_LED_STRIP, value);
 }
 
-void startup_animation() {
-  
-}
-
-void setup() {                
+void setup() {
+#ifdef PRINT_STATE
+  Serial.begin(SERIAL_PORT_BAUD);
+  delay(200);
+  Serial.println("Starting up");
+#endif
   // initialize the digital pin as an output.
   pinMode(PIN_STATUS_LED, OUTPUT);
   pinMode(PIN_PIR, INPUT);
   pinMode(PIN_LED_STRIP, OUTPUT);
-  Serial.begin(SERIAL_PORT_BAUD);
-
-  startup_animation();
+  io_setup();
+  g_ts_finish_setup = millis();
 }
 
 // the loop routine runs over and over again forever:
 void loop() {
   const uint32_t time_now = millis();
-  const bool pwr_btn_on = probe_user_switch_on();
-  static bool s_prev_pwr_btn_on = pwr_btn_on;
-  if (pwr_btn_on && (pwr_btn_on != s_prev_pwr_btn_on)) {
+  const bool first_run = g_first_run;
+
+  if (first_run) {
+#ifdef PRINT_STATE
+    g_ts_start_loop = millis();
+    uint32_t delta = g_ts_start_loop - g_ts_finish_setup;
+    char buff[128] = {0};
+    sprintf(buff, "g_earliest_time: %"PRIu32", g_ts_finish_setup: %"PRIu32", g_ts_start_loop: %"PRIu32"\n",
+            g_earliest_time, g_ts_finish_setup, g_ts_start_loop);
+    Serial.println("Sprintf finished");
+    Serial.print(buff);
+    Serial.println("Finished buff");
+    Serial.flush();
+    Serial.println("Finished flush()");
+    Serial.flush();
+    delay(1000);
+    Serial.println("Finished!");
+#endif
+  }
+  
+  g_first_run = false;
+  const bool pwr_btn_on = io_probe_user_switch_on();
+  if (first_run || (pwr_btn_on && (pwr_btn_on != g_prev_pwr_btn_on))) {
     alarm_timer.Trigger();
   }
-  s_prev_pwr_btn_on = pwr_btn_on;
+  g_prev_pwr_btn_on = pwr_btn_on;
 
   const bool pir_active = (HIGH == digitalRead(PIN_PIR));
   digitalWrite(PIN_STATUS_LED, pir_active ? HIGH : LOW);
@@ -102,28 +83,29 @@ void loop() {
   const uint32_t alarm_remaining = ON_DURATION > alarm_time ? ON_DURATION - alarm_time : 0;
   
   if (!pwr_btn_on) {
-    led_value = 0;
+    g_led_value = 0;
   } else {
     if (alarm_remaining > 0) {
-      led_value += 1;
-      if (led_value > 255) {
-        led_value = 255;
+      g_led_value += 1;
+      if (g_led_value > 255) {
+        g_led_value = 255;
       }
     } else {
-      led_value -= 1;
-      if (led_value < 0) {
-        led_value = 0;
+      g_led_value -= 1;
+      if (g_led_value < 0) {
+        g_led_value = 0;
       }
     } 
   }
-  analogWrite(PIN_LED_STRIP, led_value);
+  write_led(g_led_value);
 
 #ifdef PRINT_STATE
-  char buff[256] = {0};
+  char buff[128] = {0};
   sprintf(buff,
          "pwr_btn_on: %d, pir_active: %d, led: %d, alarm_remaining: %"PRIu32"\n",
-          pwr_btn_on, pir_active, led_value, alarm_remaining);
+          pwr_btn_on, pir_active, g_led_value, alarm_remaining);
   Serial.print(buff);
+  Serial.flush();
 #endif
 
   while (millis() - time_now < FRAME_TIME_MS) {;}
